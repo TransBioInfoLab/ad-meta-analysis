@@ -1,13 +1,28 @@
+# DNA methylation changes associated with Alzheimer’s Disease pathology: an epigenome-wide meta-analysis of prefrontal cortex brain samples
 
+Authors:  
+- Lanyu Zhang
+- Tiago Chedraoui Silva
+- Juan Young
+- Lissette Gomez
+- Michael Schmidt
+- Kara Lyn Hamilton-Nelson
+- Brian Kunkle
+- Gabriel J. Odom
+- Xi Chen
+- Eden R. Martin
+- Lily Wang
 
-## Analysis
+## Auxliary files
 
-### Descritption
+### Single cohort analysis
 
-Each of the files has the following structure"
+#### Descritption
+
+Each of the files has the following structure:
 
 1. Data retrival
-2 Data Pre-processing
+2. Data Pre-processing
 2.1 Probes QC
 2.2 Samples QC
 3. Outliers detection - PCA analysis
@@ -27,7 +42,7 @@ Each of the files has the following structure"
 | SanchexMut.Rmd       |   SanchexMut |
 | Semick.Rmd           |   Semick    |
 
-## Meta-analysis 
+### Meta-analysis 
 
 
 | File                 | Description |
@@ -35,12 +50,12 @@ Each of the files has the following structure"
 | Meta-analysis.Rmd    |             |
 
 
-## Correlation of methylation changes in brain and blood samples
+### Correlation of methylation changes in brain and blood samples
 
 | File                 | Description |
 |----------------------|-------------|
 
-## 
+### 
 
 | File                 | Description |
 |----------------------|-------------|
