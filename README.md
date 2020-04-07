@@ -90,9 +90,9 @@ The cohort specific p-values for each contiguous genomic region were then combin
 Co-methylated DMRs with FDR less than 5% were considered to be significant.
 
 #### Files
-| File                 | Description |
-|----------------------|-------------|
-| Meta-analysis.Rmd    |             |
+| File                 | 
+|----------------------|
+| Meta-analysis.Rmd    | 
 
 
 ### Matched Meta-analysis
@@ -105,9 +105,9 @@ The matched samples were analyzed in the same way as described above, except by 
 
 #### Files
 
-| File                 | Description |
-|----------------------|-------------|
-| Matched-analysis.Rmd |             |
+| File                 | 
+|----------------------|
+| Matched-analysis.Rmd | 
 
 ### Correlation of methylation changes in brain and blood samples
 
@@ -121,9 +121,9 @@ In addition, we also conducted look up analysis using the BeCon tool, which comp
 Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
 
 #### Files
-| File                 | Description |
-|----------------------|-------------|
-| London_blood_brain_correlation.Rmd | |
+| File                 |
+|----------------------|
+| London_blood_brain_correlation.Rmd | 
 
 ### Correlation of significant DMRs with expression of nearby genes
 
@@ -135,11 +135,11 @@ More specifically, normalized FPKM (Fragments Per Kilobase of transcript per Mil
 gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Portal (Synapse ID: syn3388564). 
 
 Next, for each significant DMR identified in meta-analysis, we first removed confounding effects in DNA methylation data 
-by fitting model median methylation M value ~ neuron.proportions + batch + sample plate + ageAtDeath + sex 
+by fitting model `median methylation M value ~ neuron.proportions + batch + sample plate + ageAtDeath + sex` 
 and extracting residuals from this model, these are the methylation residuals. 
 
 Similarly, we also removed potential confounding effects in RNA-seq data by fitting model
-log2(normalized FPKM values) ~ ageAtDeath + sex  + markers for cell types. 
+`log2(normalized FPKM values) ~ ageAtDeath + sex  + markers for cell types`. 
 
 The last term “markers for cell types” included multiple covariate variables, to adjust for the multiple types of cells in the brain samples. 
 
@@ -156,12 +156,12 @@ For significant DMS, this analysis was repeated, except by replacing median meth
 in the DMR with methylation level of the CpG, and correlating with expression values of genes found ± 250 kb away from the CpG. 
 
 To compare the DNA methylation to RNA associations (DNAm-RNA) for DMRs vs. CpGs, 
-we used a generalized estimating equations (GEE) model where -log10Pvalues from each DMR or CpG were treated as a cluster. 
+we used a generalized estimating equations (GEE) model where `-log10Pvalues` from each DMR or CpG were treated as a cluster. 
 The GEE model included log p-value of the DNAm-RNA associations as the outcome variable, isDMR (yes/no) and isCaseAssociation (yes/no) as independent variables. 
 We assumed an exchangeable working correlation structure for the clusters of correlated observations, a
 long with log link and gamma distribution for the outcome variable. 
 
 #### Files
-| File                 | Description |
-|----------------------|-------------|
-| DMR_gene_expression_analysis.Rmd |             |
+| File                 | 
+|----------------------|
+| DMR_gene_expression_analysis.Rmd |   
