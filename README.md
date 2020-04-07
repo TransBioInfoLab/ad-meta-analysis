@@ -122,7 +122,7 @@ Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects.
 #### Files
 | File                 |    HTML                  | 
 |----------------------|----------------------|
-| London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/kswu3xa7lzk4g61/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
 
