@@ -1,0 +1,1004 @@
+---
+title: "Analyzing epigenetic effect of coMethylated regions"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+author:
+- Tiago C. Silva, Lanyu Zhang, Lily Wang
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    highlight: zenburn
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    code_folding: show
+    toc_float: false
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      fig.width = 10, 
+                      fig.height = 13)
+knitr::opts_knit$set(progress = FALSE, verbose = FALSE,root.dir = "..")
+show.section.code <- FALSE
+```
+
+
+`r if(show.section.code){"# Load libraries"}`
+
+
+```{r, include = show.section.code}
+suppressMessages({
+  library(ComplexHeatmap)
+  library(SummarizedExperiment)
+  library(GenomicRanges)
+  devtools::load_all("~/Documents/packages/coMethDMR//")
+  library(TCGAbiolinks)
+  library(ggpubr)
+  library(dplyr)
+  library(tidyr)
+  library(ggpubr)
+  library(DelayedMatrixStats)
+  devtools::load_all("~/Documents/packages/coMethDMR/")
+  devtools::load_all("~/Dropbox (BBSR)/PanCancer/methTF/")
+  library(doParallel)
+  registerDoParallel(4)
+  gene.info <- TCGAbiolinks::get.GRCh.bioMart("hg19")
+})
+```
+
+
+# Datasets
+
+- DNAm data – in file 'ROSMAP_QNBMIQ_PCfiltered.RDS' 
+- RNAseq data – in files:
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'  
+- Link for IDs – in file "ROSMAP_IDkey"
+  - column "mwas_id" is for DNAm data 
+  - column "rnaseq_id" is for rnaseq
+- Phenotype data:  pheno_withNeuronProp_df.RDS
+
+## Code to get matched data
+```{R, code = readLines("data.R"),eval = FALSE}
+```
+
+## Reading data created previously
+
+```{R, fig.height = 6}
+data.path <- "../code_validation/Meta_analysis_code/DATASETS/ROSMAP"
+load("data/matched_data.rda")
+dim(matched.dnam)
+dim(matched.exp)
+matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
+matched.phenotype
+gghistogram(matched.phenotype$braaksc,
+            bins = 7,
+            fill = "black",
+            color = "white",
+            alpha = 1)
+```
+
+
+# Region analysis
+## Get metadata results
+
+```{R}
+meta.analysis.folder <- "../code_validation/Meta_analysis_code/meta_analysis_region_results/"
+# focus on significant methylation regions with FDR < 0.05 in file “meta_analysis_ALL_df.csv”
+analysis <- readr::read_csv(
+  file.path(meta.analysis.folder,"step1_meta_analysis/meta_analysis_ALL_df.csv"),
+  col_types = readr::cols()
+)
+
+region.analysis <- readr::read_csv(
+  file.path(meta.analysis.folder,"step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"),
+  col_types = readr::cols()
+)
+
+dmr <- region.analysis %>% filter(!is.na(ROSMAP_coMethRegion))
+dim(dmr)
+dmr.hypo <- region.analysis %>% filter(estimate < 0)
+dim(dmr.hypo)
+dmr.hyper <- region.analysis %>% filter(estimate > 0)
+dim(dmr.hyper)
+```
+
+## Analysis: RNA vs DNAm
+
+For each region coMethylated region, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the 
+following model:
+
+$$rna_{residual} \sim met_{residual} + group + group *  met_{residual}$$
+
+### Remove confounding effects in DNAm data
+
+$Median(\text{DNAm m-values in DMR})  \sim celltype.proportion + batch + \text{sample plate}  + ageAtDeath + sex => \text{DNAm residuals}$
+
+```{R, eval = FALSE}
+file <- "results/ROSMAP.probes.all.meta.analysis.regions.rda"
+if(!file.exists(file)){
+  regions.name  <- na.omit(results.meta.analysis.region$ROSMAP_coMethRegion) %>% as.character() %>% unique()
+  probes.all.regions <- GetCpGsInAllRegion(regions.name, progress = TRUE, nCores_int = 10)
+  save(probes.all.regions, file = file)
+} else {
+  load(file)
+}
+
+
+median.met <- plyr::ldply(
+  probes.all.regions[unique(dmr$ROSMAP_coMethRegion)],
+  function(probes){
+    aux <- colMedians(matched.dnam,rows = rownames(matched.dnam) %in% probes)
+    aux
+  },
+  .progress = "time",
+  .parallel = TRUE,
+  .inform = TRUE,
+  .id = "region" 
+)
+
+rownames(median.met) <- median.met$region %>% as.character()
+median.met$region <- NULL
+colnames(median.met) <- colnames(matched.dnam)
+
+# 1) remove confounding effects in DNAm data: 
+resid_met <- GetResiduals(
+  dnam = median.met,
+  betaToM = TRUE, #converts to Mvalues for fitting linear model 
+  pheno_df = matched.phenotype,
+  covariates_char = c("Sample_Plate", "prop.neuron", "batch","msex","age_death"), 
+  nCores_int = 1,
+  progressbar = TRUE  
+)
+```
+
+### Remove confounding effects in gene expression data
+
+
+$log2(RNA) \sim ageAtDeath + sex  + \text{markers for cell types}  => \text{RNA residuals}$
+```{R residual, eval = FALSE}
+matched.exp.log2 <- log2(matched.exp + 1)
+markers <-
+  t(matched.exp.log2[c(
+    "ENSG00000111674",
+    "ENSG00000129226",
+    "ENSG00000131095",
+    "ENSG00000205927",
+    "ENSG00000174059"
+  ), ])
+colnames(markers) <- c("markers_ENO2",
+                       "markers_OLIG2",
+                       "markers_CD34",
+                       "markers_CD68",
+                       "markers_GFAP")
+matched.phenotype$rnaseq_id  <- map$rnaseq_id[match(matched.phenotype$Sample,map$mwas_id)]
+resid_exp <- plyr::adply(.data = matched.exp.log2,
+                         .margins = 1, 
+                         function(row){
+                           val <- t(row)
+                           colnames(val) <- "val"
+                           dat <- cbind(val, 
+                                        matched.phenotype,
+                                        markers
+                           )
+                           dat$val <- as.numeric(dat$val)
+                           fitE <- lm("val ~ age_death + msex + markers_ENO2 + markers_OLIG2 + markers_CD34 + markers_CD68 + markers_GFAP", 
+                                      data = dat, 
+                                      na.action = na.exclude)
+                           residuals(fitE)
+                         }, .progress = "time",
+                         .parallel = TRUE)
+rownames(resid_exp) <- rownames(matched.exp.log2)
+```
+
+```{R,eval = FALSE}
+save(resid_exp,
+     resid_met,
+     file = "data/residuals.rda")
+```
+
+```{R,eval = TRUE, include = FALSE}
+load("data/residuals.rda")
+```
+
+
+## Map region to genes +-250kb
+
+The function `getDNAm.target` will extend the regions $+-250Kbp$ and return the overlapping genes.
+
+
+```{R}
+regions.gr <- rownames(resid_met) %>% 
+  as.data.frame %>% 
+  tidyr::separate(col = ".",into = c("chr","start","end"))  %>%
+  makeGRangesFromDataFrame()
+names(regions.gr) <- rownames(resid_met)
+regions.gr
+
+# function available in methTF package https://gitlab.com/tiagochst/methtf
+regions.genes <- getDNAm.target(regions.gr = regions.gr,
+                                genome = "hg19",
+                                method = "window",
+                                window.width = 500 * 10 ^ 3) # 500 kb
+regions.genes <- regions.genes %>%
+  dplyr::filter(regions.genes$gene_ensembl_gene_id %in% rownames(resid_exp))
+
+dim(regions.genes)
+head(regions.genes)
+```
+
+
+## Target vs DNAm residual
+
+Linear models:
+
+- For cases (Braak stage 3-6): $\text{RNA residuals} \sim \text{DNAm residuals}$
+- For controls (Braak stage 0-2): $\text{RNA residuals} \sim \text{DNAm residuals}$
+- For all samples $\text{RNA residuals} \sim \text{DNAm residuals} + group + group \times \text{DNAm residuals}$
+
+```{R, eval = FALSE}
+# http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
+tab <- plyr::adply(
+  regions.genes,
+  .margins = 1,
+  .fun = function(row) {
+    tryCatch({
+      rna.target <-
+        resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
+      met.residual <-
+        resid_met[rownames(resid_met) == as.character(row$regionID), ]
+      
+      df <-
+        data.frame(
+          rna.residual = rna.target %>% as.numeric,
+          met.residual = met.residual %>% as.numeric,
+          Braak_stage = matched.phenotype$braaksc,
+          group = ifelse(matched.phenotype$braaksc < 3, "Control", "Case")
+        )
+      
+      # 2) fit linear model to cases and controls seperately:
+      # For cases (Braak stage 3-6)
+      # RNA_residuals ~ DNAm_residuals
+      results.cases <-
+        lm (
+          rna.residual ~ met.residual,
+          data = df[df$Braak_stage > 2, ]
+        )
+      results.cases.pval <-
+        summary(results.cases)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.cases.estimate <-
+        summary(results.cases)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.cases.pval) <-
+        paste0("cases_pval_", colnames(results.cases.pval))
+      colnames(results.cases.estimate) <-
+        paste0("cases_estimate_", colnames(results.cases.estimate))
+      
+      # For controls (Braak stage 0 -2)
+      # RNA_residuals ~ DNAm_residuals
+      results.control <-
+        lm (
+          rna.residual ~ met.residual,
+          data = df[df$Braak_stage < 3, ]
+        )
+      results.control.pval <-
+        summary(results.control)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.control.estimate <-
+        summary(results.control)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.control.pval) <-
+        paste0("control_pval_", colnames(results.control.pval))
+      colnames(results.control.estimate) <-
+        paste0("control_estimate_", colnames(results.control.estimate))
+      
+      
+      # (3) fit linear model to all samples:
+      
+      #  RNA_residuals ~ DNAm_residuals + group + group x DNAm_residuals
+      # where group = case/control status
+      results.all <-
+        lm (
+          rna.residual ~ met.residual + group + group * met.residual,
+          data = df
+        )
+      results.all.pval <-
+        summary(results.all)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.all.estimate <-
+        summary(results.all)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.all.pval) <-
+        paste0("all_pval_", colnames(results.all.pval))
+      colnames(results.all.estimate) <-
+        paste0("all_estimate_", colnames(results.all.estimate))
+      
+      return(
+        data.frame(
+          cbind(
+            results.cases.pval,
+            results.cases.estimate,
+            results.control.pval,
+            results.control.estimate,
+            results.all.pval,
+            results.all.estimate
+          ),
+          row.names = NULL,
+          stringsAsFactors = FALSE
+        ))
+    }, error = function(e) {
+      print(row)
+      return()
+    })
+  },
+  .id = NULL,
+  .progress = "time",
+  .parallel = TRUE,
+  .inform = TRUE
+)
+readr::write_csv(tab,path = "results/results_regions_lm_250kb_window.csv")
+```
+
+### Plots
+
+```{R, include = FALSE}
+
+plotTargetDNAm <- function(row){
+  rna.target <-
+    resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
+  met.residual <-
+    resid_met[rownames(resid_met) == as.character(row$regionID), ]
+  
+  df <-
+    data.frame(
+      rna.residual = rna.target %>% as.numeric,
+      met.residual = met.residual %>% as.numeric,
+      Braak_stage = matched.phenotype$braaksc,
+      Braak_group = ifelse(matched.phenotype$braaksc < 3, "Control", "Case")
+    )
+  
+  target.lab <- bquote(atop("Target" ~.(row$gene_external_gene_name), "Residuals"))
+  region.lab <- "DNA methylation residual-values"
+  
+  dnam.target.plot <- ggscatter(df, 
+                                x = "met.residual", 
+                                y = "rna.residual",
+                                size = 1,
+                                color = "Braak_group",
+                                fill = "Braak_group",
+                                add = "reg.line",  # Add regressin line
+                                # add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                                conf.int = TRUE, # Add confidence interval
+                                #cor.coef = TRUE # Add correlation coefficient. see ?stat_cor
+                                # cor.coeff.args = list(method = "pearson", label.x = 0, label.sep = "\n")
+  ) + ylab(target.lab) + xlab(region.lab) + 
+    labs(fill = "Braak group", color = "Braak group") +
+    stat_cor(aes(color = Braak_group))  
+  # + geom_smooth(method = MASS::rlm, se = FALSE) 
+  
+  # quintile plots DNAm
+  quant <-  quantile(df$DNAm,na.rm = TRUE)
+  quantile_lower_cutoff <- quant[2]
+  quantile_upper_cutoff <- quant[4]
+  range1 <- paste0("[",paste(round(quant[1:2],digits = 3),collapse = ","),"]")
+  range2 <- paste0("[",paste(round(quant[4:5],digits = 3),collapse = ","),"]")
+  
+  df$group <- NA
+  df$group[df$DNAm > quantile_upper_cutoff] <- paste0("DNAm high quartile ", range2) 
+  df$group[df$DNAm < quantile_lower_cutoff] <- paste0("DNAm low quartile " , range1) 
+  
+  # quintile plots TF
+  quant <-  quantile(df$TF,na.rm = TRUE)
+  quantile_lower_cutoff <- quant[2]
+  quantile_upper_cutoff <- quant[4]
+  range1 <- paste0("[",paste(round(quant[1:2],digits = 3),collapse = ","),"]")
+  range2 <- paste0("[",paste(round(quant[4:5],digits = 3),collapse = ","),"]")
+  
+  for(idx in grep("pval|fdr|value",colnames(row))) row[,idx] <- format.pval(row[,idx]  %>% pull(),digits = 3)
+  for(idx in grep("estimate|median|minus",colnames(row))) row[,idx] <- format(row[,idx]  %>% pull(),digits = 3)
+  
+  #colnames(row)[15] <- "Tumor_median - Normal_median"
+  base_size <- 9
+  aux <- row[,c("regionID",
+                "gene_external_gene_name",
+                "Distance.region.gene")]
+  colnames(aux) <- c("regionID","Gene","Dist. region/gene (bp)")
+  table.plot1 <- ggtexttable(aux %>% 
+                               t() %>% 
+                               as_tibble(rownames = "Variable"), 
+                             rows = NULL, 
+                             cols = NULL,
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  
+  table.plot2a <- row[,grep("cases_estimate",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot2a)[2] <- "Estimate"
+  table.plot2a$Variable <- gsub("cases_estimate_","",table.plot2a$Variable)
+  table.plot2b <- row[,grep("cases_pval",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot2b$Variable <- gsub("cases_pval_","",table.plot2b$Variable)
+  colnames(table.plot2b)[2] <- "P-value"
+  table.plot2 <- merge(table.plot2a,table.plot2b, by = "Variable",sort = FALSE)
+  
+  table.plot2 <- ggtexttable(table.plot2,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n Cases","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  table.plot3a <- row[,grep("control_estimate",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot3a)[2] <- "Estimate"
+  table.plot3a$Variable <- gsub("control_estimate_","",table.plot3a$Variable)
+  table.plot3b <- row[,grep("control_pval",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot3b$Variable <- gsub("control_pval_","",table.plot3b$Variable)
+  colnames(table.plot3b)[2] <- "P-value"
+  table.plot3 <- merge(table.plot3a,table.plot3b, by = "Variable",sort = FALSE)
+  
+  table.plot3 <- ggtexttable(table.plot3,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n Control","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  
+  table.plot4a <- row[,grep("all_estimate",colnames(row),value = T)] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot4a)[2] <- "Estimate"
+  table.plot4a$Variable <- gsub("all_estimate_","",table.plot4a$Variable)
+  table.plot4b <- row[,grep("all_pval",colnames(row),value = T)] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot4b$Variable <- gsub("all_pval_","",table.plot4b$Variable)
+  colnames(table.plot4b)[2] <- "P-value"
+  table.plot4 <- merge(table.plot4a,table.plot4b, by = "Variable",sort = FALSE)
+  
+  table.plot4 <- ggtexttable(table.plot4,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n  Cases and controls","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  # Arrange the plots on the same page
+  plot.table <- ggarrange(
+    ggarrange(table.plot1,
+              table.plot2,
+              ncol = 2),
+    ggarrange(
+      table.plot3,
+      table.plot4,
+      ncol = 2),
+    ggarrange(dnam.target.plot,
+              ncol = 1),
+    nrow = 3,
+    heights = c(0.4,0.6,2))
+  plot.table
+}
+```
+
+#### Lowest interaction p-values
+
+```{R  model_all_plot_neg_cpg, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$all_pval_met.residual.groupControl)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+#### Lowest DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$all_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+#### Lowest cases DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+#### Lowest control DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$control_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+### Results
+
+```{R}
+tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
+tab$fdr.controls <- p.adjust(tab$control_pval_met.residual,method = "fdr")
+tab$fdr.cases <- p.adjust(tab$cases_pval_met.residual,method = "fdr")
+
+output <- tab[,c("regionID","gene_external_gene_name",
+                 "cases_estimate_met.residual","cases_pval_met.residual","fdr.cases",
+                 "control_estimate_met.residual","control_pval_met.residual","fdr.controls",
+                 "all_estimate_met.residual.groupControl","all_pval_met.residual.groupControl")] 
+colnames(output) <- c("coMethDMR",
+                      "geneSymbol",
+                      "estimate.cases",
+                      "pval.cases",
+                      "fdr.cases",
+                      "estimate.controls",
+                      "pval.controls",
+                      "fdr.controls",
+                      "estimate.intxn",
+                      "pval.intxn"
+)
+
+
+cols <- c(grep("ROSMAP_coMethRegion",colnames(region.analysis)),
+          grep("Relation",colnames(region.analysis)):grep("^smoke_bi$",colnames(region.analysis)))
+output2 <- merge(output,
+                region.analysis[,cols],
+                by.x = "coMethDMR", 
+                by.y = "ROSMAP_coMethRegion",
+                all.x = TRUE)
+
+write.csv(output2,file = "results/results_regions_lm_250kb_window_renamed.csv")
+
+output %>% dplyr::filter(output$pval.intxn < 0.01 | output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "Liner model Target/DNAm results")
+```
+
+
+# Single cpg analysis
+## Get metadata results
+
+```{R}
+single.cpg.analysis <- 
+  readr::read_csv("../code_validation/Meta_analysis_code/meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv", 
+                  col_types = readr::cols())
+
+dmc <- single.cpg.analysis %>% filter(!is.na(ROSMAP_pValue))
+dim(dmc)
+dmc.hypo <- dmc %>% filter(estimate < 0)
+dim(dmc.hypo)
+dmc.hyper <- dmc %>% filter(estimate > 0)
+dim(dmc.hyper)
+```
+
+
+## Analysis: RNA vs DNAm
+
+For each region coMethylated region, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the 
+following model:
+
+$$rna_{residual} \sim met_{residual} + group + group *  met_{residual}$$
+
+### Remove confounding effects in DNAm data
+
+$Median(\text{DNAm m-values in DMR})  \sim celltype.proportion + batch + \text{sample plate}  + ageAtDeath + sex => \text{DNAm residuals}$
+
+```{R, eval = FALSE}
+
+# 1) remove confounding effects in DNAm data: 
+resid_met_cpg <- GetResiduals(
+  dnam = matched.dnam[dmc$cpg,],
+  betaToM = TRUE, #converts to Mvalues for fitting linear model 
+  pheno_df = matched.phenotype,
+  covariates_char = c("Sample_Plate", "prop.neuron", "batch","msex","age_death"), 
+  nCores_int = 1,
+  progressbar = TRUE  
+)
+```
+
+
+```{R,eval = FALSE}
+save(resid_exp,
+     resid_met_cpg,
+     file = "data/residuals_cpg.rda")
+```
+
+```{R,eval = TRUE, include = FALSE}
+load("data/residuals_cpg.rda")
+```
+
+
+## Map region to genes +-250kb
+
+The function `getDNAm.target` will extend the regions $+-250Kbp$ and return the overlapping genes.
+
+
+```{R}
+dmc.gr <- sesameData::sesameDataGet("HM450.hg19.manifest")[dmc$cpg,] 
+regions.genes <- getDNAm.target(regions.gr = dmc.gr,
+                                genome = "hg19",
+                                method = "window",
+                                window.width = 500 * 10 ^ 3) # 500 kb
+regions.genes <- regions.genes %>%
+  dplyr::filter(regions.genes$gene_ensembl_gene_id %in% rownames(resid_exp))
+regions.genes$cpg <- names(dmc.gr)[match(regions.genes$regionID,paste0(as.data.frame(dmc.gr)$seqnames,":",as.data.frame(dmc.gr)$start,"-",as.data.frame(dmc.gr)$end))]
+
+dim(regions.genes)
+head(regions.genes)
+```
+
+
+## Target vs DNAm residual
+
+Linear models:
+- For cases (Braak stage 3-6): $\text{RNA residuals} \sim \text{DNAm residuals}$
+- For controls (Braak stage 0-2): $\text{RNA residuals} \sim \text{DNAm residuals}$
+- For all samples $\text{RNA residuals} \sim \text{DNAm residuals} + group + group \times \text{DNAm residuals}$
+
+```{R, eval = FALSE}
+# http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
+tab.cpg <- plyr::adply(
+  regions.genes,
+  .margins = 1,
+  .fun = function(row) {
+    tryCatch({
+      rna.target <-
+        resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
+      met.residual <-
+        resid_met_cpg[rownames(resid_met_cpg) == as.character(row$cpg), ]
+      
+      df <-
+        data.frame(
+          rna.residual = rna.target %>% as.numeric,
+          met.residual = met.residual %>% as.numeric,
+          Braak_stage = matched.phenotype$braaksc,
+          group = ifelse(matched.phenotype$braaksc < 3, "Control", "Case")
+        )
+      
+      # 2) fit linear model to cases and controls seperately:
+      # For cases (Braak stage 3-6)
+      #  RNA_residuals ~ DNAm_residuals
+      results.cases <-
+        lm (
+          rna.residual ~ met.residual,
+          data = df[df$Braak_stage > 2, ]
+        )
+      results.cases.pval <-
+        summary(results.cases)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.cases.estimate <-
+        summary(results.cases)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.cases.pval) <-
+        paste0("cases_pval_", colnames(results.cases.pval))
+      colnames(results.cases.estimate) <-
+        paste0("cases_estimate_", colnames(results.cases.estimate))
+      
+      # For controls (Braak stage 0 -2)
+      #  RNA_residuals ~ DNAm_residuals
+      results.control <-
+        lm (
+          rna.residual ~ met.residual,
+          data = df[df$Braak_stage < 3, ]
+        )
+      results.control.pval <-
+        summary(results.control)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.control.estimate <-
+        summary(results.control)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.control.pval) <-
+        paste0("control_pval_", colnames(results.control.pval))
+      colnames(results.control.estimate) <-
+        paste0("control_estimate_", colnames(results.control.estimate))
+      
+      
+      # (3) fit linear model to all samples:
+      # RNA_residuals ~ DNAm_residuals + group + group x DNAm_residuals
+      # where group = case/control status
+      results.all <-
+        lm (
+          rna.residual ~ met.residual + group + group * met.residual,
+          data = df
+        )
+      results.all.pval <-
+        summary(results.all)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
+      results.all.estimate <-
+        summary(results.all)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.all.pval) <-
+        paste0("all_pval_", colnames(results.all.pval))
+      colnames(results.all.estimate) <-
+        paste0("all_estimate_", colnames(results.all.estimate))
+      
+      return(
+        data.frame(
+          cbind(
+            results.cases.pval,
+            results.cases.estimate,
+            results.control.pval,
+            results.control.estimate,
+            results.all.pval,
+            results.all.estimate
+          ),
+          row.names = NULL,
+          stringsAsFactors = FALSE
+        ))
+    }, error = function(e) {
+      print(row)
+      return()
+    })
+  },
+  .id = NULL,
+  .progress = "time",
+  .parallel = TRUE,
+  .inform = TRUE
+)
+readr::write_csv(tab.cpg,path = "results/results_single_cpg_lm_250kb_window.csv")
+```
+
+### Plots
+
+```{R, include = FALSE}
+
+plotTargetDNAm <- function(row){
+  rna.target <-
+    resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
+  met.residual <-
+    resid_met_cpg[rownames(resid_met_cpg) == as.character(row$cpg), ]
+  
+  df <-
+    data.frame(
+      rna.residual = rna.target %>% as.numeric,
+      met.residual = met.residual %>% as.numeric,
+      Braak_stage = matched.phenotype$braaksc,
+      Braak_group = ifelse(matched.phenotype$braaksc < 3, "Control", "Case")
+    )
+  
+  target.lab <- bquote(atop("Target" ~.(row$gene_external_gene_name), "Residuals"))
+  region.lab <- "DNA methylation residual-values"
+  
+  dnam.target.plot <- ggscatter(df, 
+                                x = "met.residual", 
+                                y = "rna.residual",
+                                size = 1,
+                                color = "Braak_group",
+                                fill = "Braak_group",
+                                add = "reg.line",  # Add regressin line
+                                # add.params = list(color = "blue", fill = "lightgray"), # Customize reg. line
+                                conf.int = TRUE, # Add confidence interval
+                                #cor.coef = TRUE # Add correlation coefficient. see ?stat_cor
+                                # cor.coeff.args = list(method = "pearson", label.x = 0, label.sep = "\n")
+  ) + ylab(target.lab) + xlab(region.lab) + 
+    labs(fill = "Braak group", color = "Braak group") +
+    stat_cor(aes(color = Braak_group))  
+  
+  # quintile plots DNAm
+  quant <-  quantile(df$DNAm,na.rm = TRUE)
+  quantile_lower_cutoff <- quant[2]
+  quantile_upper_cutoff <- quant[4]
+  range1 <- paste0("[",paste(round(quant[1:2],digits = 3),collapse = ","),"]")
+  range2 <- paste0("[",paste(round(quant[4:5],digits = 3),collapse = ","),"]")
+  
+  df$group <- NA
+  df$group[df$DNAm > quantile_upper_cutoff] <- paste0("DNAm high quartile ", range2) 
+  df$group[df$DNAm < quantile_lower_cutoff] <- paste0("DNAm low quartile " , range1) 
+  
+  # quintile plots TF
+  quant <-  quantile(df$TF,na.rm = TRUE)
+  quantile_lower_cutoff <- quant[2]
+  quantile_upper_cutoff <- quant[4]
+  range1 <- paste0("[",paste(round(quant[1:2],digits = 3),collapse = ","),"]")
+  range2 <- paste0("[",paste(round(quant[4:5],digits = 3),collapse = ","),"]")
+  
+  for(idx in grep("pval|fdr|value",colnames(row))) row[,idx] <- format.pval(row[,idx]  %>% pull(),digits = 3)
+  for(idx in grep("estimate|median|minus",colnames(row))) row[,idx] <- format(row[,idx]  %>% pull(),digits = 3)
+  
+  #colnames(row)[15] <- "Tumor_median - Normal_median"
+  base_size <- 9
+  table.plot1 <- ggtexttable(row[,c("regionID",
+                                    "gene_external_gene_name",
+                                    "Distance.region.gene")] %>% 
+                               t() %>% 
+                               as_tibble(rownames = "Variable"), 
+                             rows = NULL, 
+                             cols = NULL,
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  
+  table.plot2a <- row[,grep("cases_estimate",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot2a)[2] <- "Estimate"
+  table.plot2a$Variable <- gsub("cases_estimate_","",table.plot2a$Variable)
+  table.plot2b <- row[,grep("cases_pval",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot2b$Variable <- gsub("cases_pval_","",table.plot2b$Variable)
+  colnames(table.plot2b)[2] <- "P-value"
+  table.plot2 <- merge(table.plot2a,table.plot2b, by = "Variable",sort = FALSE)
+  
+  table.plot2 <- ggtexttable(table.plot2,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n Cases","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  table.plot3a <- row[,grep("control_estimate",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot3a)[2] <- "Estimate"
+  table.plot3a$Variable <- gsub("control_estimate_","",table.plot3a$Variable)
+  table.plot3b <- row[,grep("control_pval",colnames(row),value = T),drop  = FALSE] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot3b$Variable <- gsub("control_pval_","",table.plot3b$Variable)
+  colnames(table.plot3b)[2] <- "P-value"
+  table.plot3 <- merge(table.plot3a,table.plot3b, by = "Variable",sort = FALSE)
+  
+  table.plot3 <- ggtexttable(table.plot3,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n Control","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  
+  table.plot4a <- row[,grep("all_estimate",colnames(row),value = T)] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  colnames(table.plot4a)[2] <- "Estimate"
+  table.plot4a$Variable <- gsub("all_estimate_","",table.plot4a$Variable)
+  table.plot4b <- row[,grep("all_pval",colnames(row),value = T)] %>% 
+    t() %>% 
+    as_tibble(rownames = "Variable")
+  table.plot4b$Variable <- gsub("all_pval_","",table.plot4b$Variable)
+  colnames(table.plot4b)[2] <- "P-value"
+  table.plot4 <- merge(table.plot4a,table.plot4b, by = "Variable",sort = FALSE)
+  
+  table.plot4 <- ggtexttable(table.plot4,
+                             rows = NULL, 
+                             cols = c("DNAm vs Target\n  Cases and controls","Estimate","P-Values"),
+                             theme = ttheme("mOrange", base_size = base_size)
+  )
+  
+  # Arrange the plots on the same page
+  plot.table <- ggarrange(
+    ggarrange(table.plot1,
+              table.plot2,
+              ncol = 2),
+    ggarrange(
+      table.plot3,
+      table.plot4,
+      ncol = 2),
+    ggarrange(dnam.target.plot,
+              ncol = 1),
+    nrow = 3,
+    heights = c(0.4,0.6,2))
+  plot.table
+}
+```
+
+#### Lowest interaction p-values
+
+```{R  model_all_plot_neg_region, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$all_pval_met.residual.groupControl)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+#### Lowest DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$all_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+#### Lowest cases DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+#### Lowest control DNAm p-values
+
+```{R, show = FALSE, fig.height = 8}
+tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
+list <- plyr::alply(tab[order(tab$control_pval_met.residual)[1:10],],
+                    .margins = 1,
+                    .fun = function(row){
+                      plotTargetDNAm(row)
+                    },.inform = TRUE
+)
+list
+```
+
+
+### Results
+
+```{R}
+tab.cpg <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
+tab.cpg$fdr.controls <- p.adjust(tab.cpg$control_pval_met.residual,method = "fdr")
+tab.cpg$fdr.cases <- p.adjust(tab.cpg$cases_pval_met.residual,method = "fdr")
+
+output <- tab.cpg[,c("cpg","gene_external_gene_name",
+                     "cases_estimate_met.residual","cases_pval_met.residual","fdr.cases",
+                     "control_estimate_met.residual","control_pval_met.residual","fdr.controls",
+                     "all_estimate_met.residual.groupControl","all_pval_met.residual.groupControl")] 
+colnames(output) <- c("cpg",
+                      "geneSymbol",
+                      "estimate.cases",
+                      "pval.cases",
+                      "fdr.cases",
+                      "estimate.controls",
+                      "pval.controls",
+                      "fdr.controls",
+                      "estimate.intxn",
+                      "pval.intxn"
+)
+write.csv(output,file = "results/results_single_cpg_lm_250kb_window_renamed.csv")
+
+
+output %>% dplyr::filter(output$pval.intxn < 0.01 | output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "Liner model Target/DNAm results - single cpg")
+```
+
+
+# Session information
+```{R}
+devtools::session_info()
+```
