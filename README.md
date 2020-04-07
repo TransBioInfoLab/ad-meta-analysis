@@ -23,8 +23,8 @@ Each of the files has the following structure:
 
 1. Data retrival
 2. Data Pre-processing
-2.1 Probes QC
-2.2 Samples QC
+2.1. Probes QC
+2.2. Samples QC
 3. Outliers detection - PCA analysis
 4. Summary after QC steps
 5. Compute neuron proportion
@@ -34,13 +34,13 @@ Each of the files has the following structure:
 
 | File                 | Dataset |
 |----------------------|-------------|
-| Gasparoni.Rmd        |   Gasparoni |
-| London.Rmd           |   London    |
-| London_blood.Rmd     |   London    |
-| MtSinai.Rmd          |    MtSinai  |
-| ROSMAP.Rmd           |   ROSMAP    |
-| SanchexMut.Rmd       |   SanchexMut |
-| Semick.Rmd           |   Semick    |
+| Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) |
+| London.Rmd           |   London (Lunnon, 2014)    |
+| London_blood.Rmd     |   London (Lunnon, 2014)     |
+| MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  |
+| ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    |
+| SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)|
+| Semick.Rmd           |   Semick (Semick et al. 2019)   |
 
 ### Meta-analysis 
 
