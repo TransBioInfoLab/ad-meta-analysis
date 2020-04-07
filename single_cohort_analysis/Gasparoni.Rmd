@@ -1,0 +1,1001 @@
+---
+title: "GASPARONI dataset"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    highlight: zenburn
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data retrival
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+library(minfi)
+```
+
+```{R}
+cohort <- "GASPARONI"
+data.dir <- file.path("DATASETS/",cohort,"/") 
+data.dir.table <- "DATASETS/Summary_Table/" 
+data.dir.raw <- file.path(data.dir,"/step1_download/") 
+data.dir.read <- file.path(data.dir,"/step2_read_minfi/") 
+data.dir.bsfilter <- file.path(data.dir,"/step3_bsConvFilter/") 
+data.dir.clinical.filter <- file.path(data.dir,"/step4_clinical_available_filtering/") 
+data.dir.probes.qc <- file.path(data.dir,"/step5_probesQC_filtering/") 
+data.dir.probes.normalization <- file.path(data.dir,"/step6_normalization/") 
+data.dir.pca <- file.path(data.dir,"/step7_pca_filtering/") 
+data.dir.neuron <- file.path(data.dir,"/step8_neuron_comp/") 
+data.dir.single.cpg.pval <- file.path(data.dir,"/step9_single_cpg_pval/") 
+data.dir.residuals <- file.path(data.dir,"/step10_residuals/") 
+data.dir.median <- file.path(data.dir,"/step11_median/") 
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+Required R libraries: `GEOquery` can be installed as following:
+
+```{R, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("GEOquery")
+```
+
+Data from: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE66351
+
+```{r synapse, eval = FALSE}
+library(GEOquery)
+library(SummarizedExperiment)
+test <- getGEO(GEO = "GSE66351",destdir = data.dir.raw)
+se <- test$GSE66351_series_matrix.txt.gz %>% makeSummarizedExperimentFromExpressionSet()
+```
+
+```{R, eval = FALSE}
+se <- se[,se$source_name_ch1  == "Frontal Cortex" &
+           se$characteristics_ch1 == "cell type: bulk" &
+           se$braak_stage.ch1 != "NA"]
+```
+
+We  will download Idat files for all our samples
+
+```{R, eval =  FALSE}
+files <- c(se$supplementary_file %>% as.character(),
+           se$supplementary_file.1 %>% as.character())
+dir.create(data.dir.raw,showWarnings = FALSE,recursive = TRUE)
+plyr::a_ply(files,.margins = 1,.fun = function(url){
+  out.file <- file.path(data.dir.raw,basename(url))
+  if(!file.exists(out.file)) downloader::download(url,out.file)
+  gunzip(out.file)
+},.progress = "time")
+```
+
+
+# Data Pre-processing
+
+Description: 
+
+- Read in idat files
+- Remove duplicated samples
+
+Input: 
+
+- idat files
+
+Output: 
+
+- RGSet.RDS
+- phenoData
+- BetaMatrixRaw
+
+```{R, eval = FALSE}
+RGSet <- read.metharray.exp(base = data.dir.raw,
+                            recursive = TRUE,
+                            verbose = TRUE) #dim: 622399 60
+phenoData <- colData(se)
+save(RGSet,phenoData, file = paste0(data.dir.read, "Gasparoni.rda")) 
+```
+
+
+# Data QC 
+
+## Bilsufite conversion filtering
+
+Filtering samples with bisulfiteConversion lower than 88.
+
+```{R qc_samples_packages, message = FALSE, results = "hide"}
+library(wateRmelon)
+library(RPMM)
+library(sesame)
+library(sesameData)
+```
+
+
+```{R}
+load(file = paste0(data.dir.read, "Gasparoni.rda"))
+bs <- data.frame(bisulfiteConversion = bscon(RGSet))
+bsFilteredOut <- row.names(bs)[bs$bisulfiteConversion < 88]
+nb.samples <- ncol(RGSet)
+RGSet <- RGSet[,!colnames(RGSet) %in% bsFilteredOut]
+nb.samples.bc.filtered <-  ncol(RGSet)
+phenoData <- phenoData[match(substr(colnames(RGSet),1,10), phenoData$geo_accession),]
+```
+
+```{R, eval = FALSE}
+save(RGSet,
+     nb.samples,
+     bs,
+     phenoData,
+     nb.samples.bc.filtered, 
+     file = paste0(data.dir.bsfilter, "/RGSet_bsfiltered.rda"))
+```
+
+```{R, include = FALSE, eval = TRUE}
+load(file = paste0(data.dir.bsfilter, "/RGSet_bsfiltered.rda"))
+```
+
+```{R}
+ggpubr::gghistogram(bs$bisulfiteConversion,xlab = "bisulfite Conversion" )
+```
+
+## Clinical data filtering
+
+```{R}
+dim(phenoData)
+
+phenoData$braak_stage.ch1 <- phenoData$braak_stage.ch1 %>% as.numeric()
+phenoData$age.ch1 <- phenoData$age.ch1 %>% as.numeric()
+### Subset rows and columns
+pheno_df <- phenoData  %>% as.data.frame() %>%
+  dplyr::filter(
+    source_name_ch1 == "Frontal Cortex" &
+      !is.na(phenoData$braak_stage.ch1) &
+      phenoData$characteristics_ch1 == "cell type: bulk"
+  ) %>% dplyr::select(
+    c(
+      "geo_accession",
+      "donor_id.ch1",
+      "sentrix_id.ch1",
+      "age.ch1",
+      "Sex.ch1",
+      "braak_stage.ch1"
+    )
+  )
+
+### Rename vars
+colnames(pheno_df) <- c(
+  "sample", "subject.id", "slide", "age.brain", "sex", "stage"
+)
+
+dim(pheno_df) 
+nb.samples.with.clinical <- nrow(pheno_df)
+## phenotype dataset
+save(RGSet,
+     nb.samples.with.clinical,
+     pheno_df,
+     file = paste0(data.dir.clinical.filter, "/gasparoni_bs_and_clinical_filtered.rda"))
+```
+
+## Probes QC
+
+1. subset to probes with detection $P <= 0.01$
+2. keep only probes that start with "cg"
+3. drop probes that are on X/Y
+4. drop probes where SNP with MAF $>= 0.01$ was present in the last 5 bp of the probe
+
+Input: 
+
+- RGSet.RDS
+- beta_mat.RDS
+
+Output: 
+
+- beta_CG_XY_SNPfiltered.RDS
+
+
+```{R}
+##### 1. subset to probes with detection P <= 0.01 #############################
+### Read in RGSet and beta_mat
+load(paste0(data.dir.clinical.filter, "/gasparoni_bs_and_clinical_filtered.rda"))
+```
+
+```{R, message = FALSE, results = 'hide'}
+### subset to probes with detection P <= 0.01
+library(minfi)
+```
+
+```{R}
+nb.probes <- nrow(RGSet)
+detP <- detectionP(RGSet, type = "m+u")
+failed.01 <- detP > 0.01
+passedProbes <- rownames(failed.01)[rowMeans(failed.01) == 0] 
+
+beta_mat <- getBeta(RGSet) 
+
+beta_mat <- beta_mat[passedProbes, ]
+nb.probes.detectP <- nrow(beta_mat)
+
+##### 2. keep only probes that start with "cg" #################################
+beta_mat <- beta_mat[grep("cg",rownames(beta_mat)),]
+dim(beta_mat) 
+nb.probes.detectP.cg <- nrow(beta_mat)
+
+##### 3. drop probes that are on X/Y ###########################################
+##### 4. drop probes where SNP with MAF >= 0.01 in the last 5 bp of the probe ##
+```
+
+```{R, message = FALSE, warning = FALSE}
+library(DMRcate)
+beta_mat <- rmSNPandCH(
+  object = beta_mat,
+  dist = 5, 
+  mafcut = 0.01, 
+  and = TRUE,
+  rmcrosshyb = FALSE,
+  rmXY = TRUE
+) 
+nb.probes.cg.dmrcate <- nrow(beta_mat)
+
+##### 5. Output datasets #######################################################
+save(
+  pheno_df,
+  nb.probes.detectP,
+  nb.probes.detectP.cg,
+  nb.probes.cg.dmrcate,
+  beta_mat,
+  file = paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.rda")
+)
+```
+
+# Normalization
+
+1. quantro test - decide if quantile normalization is needed
+2. quantile normalization - box plots before and after sample QC
+3. BMIQ - density plots before and after sampel QC
+
+Input: 
+
+- beta_CG_XY_SNPfiltered_mat.RDS
+- RGSet.RDS
+- pheno_df.RDS
+- full.annot.RDS
+
+Output: 
+
+- bs.csv
+- pheno_df.RDS
+- QNBMIQ.RDS
+- boxplots before and after quantile normalization
+- denstity plots before and after quantile normalization and BMIQ
+
+```{R qcSamplesData}
+load(paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.rda"))
+```
+
+## Quantro
+
+```{R, message = FALSE, results = 'hide'}
+library(quantro)
+library(doParallel)
+```
+
+```{R, eval = FALSE}
+##### 1. Quantro test ##########################################################
+cl <- makeCluster(4)
+registerDoParallel(cl)
+qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
+                     groupFactor = pheno_df$stage,
+                     B = 1000)
+stopCluster(cl)
+```
+
+```{R, include = FALSE,eval = FALSE}
+# save(qtestPerm,file = file.path(data.dir,"qtestPerm.rda"))
+load(file.path(data.dir.pca,"qtestPerm.rda"))
+```
+
+```{R,eval = FALSE}
+qtestPerm
+```
+
+```{R}
+##### 2. Plot before normalization and BMIQ ####################################
+### Density plot
+matdensity(object = beta_mat,
+           groupFactor = pheno_df$stage %>%  as.factor(),
+           xlab = " ", ylab = "density",
+           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
+legend('top',
+       paste0("stage ", levels(pheno_df$stage %>%  as.factor())),
+       col = c(1:7), lty = 1, lwd = 3)
+
+### Boxplot
+matboxplot(beta_mat,
+           groupFactor =  pheno_df$stage %>%  as.factor(),
+           xaxt = "n",
+           main = "Beta Values in Gasparoni cohort (autosomes) - before normalization")
+legend('bottom',
+       paste0("stage ",  levels(pheno_df$stage %>%  as.factor())),
+       col = c(1:7), 
+       lty = 1, 
+       lwd = 3, 
+       cex = 0.70)
+```
+
+
+## Quantile normalization
+
+```{R, message = FALSE, results = 'hide'}
+library(lumi)
+```
+
+
+```{R}
+betaQN <- lumiN(x.lumi = beta_mat, method = "quantile")
+dim(betaQN)
+```
+
+#### Boxplot after normalization
+```{R}
+matboxplot(betaQN,
+           groupFactor =  pheno_df$stage %>%  as.factor(),
+           xaxt = "n",
+           main = "Beta Values in Gasparoni cohort (autosomes) - after normalization")
+```
+
+## BMIQ
+
+```{R, message = FALSE, results = "hide"}
+library(wateRmelon)
+library(RPMM)
+library(sesame)
+library(sesameData)
+```
+
+```{R}
+### Order annotation in the same order as beta matrix
+annotType <- sesameDataGet("HM450.hg19.manifest")
+annotType$designTypeNumeric <- ifelse(annotType$designType == "I",1,2)
+
+### Density plot for type I and type II probes
+library(sm)
+
+betaQNCompleteCol1 <- betaQN[complete.cases(betaQN[,1]), ]
+annotTypeCompleteCol1 <- annotType[row.names(betaQNCompleteCol1), ]
+
+sm.density.compare(
+  betaQNCompleteCol1[,1],
+  annotTypeCompleteCol1$designTypeNumeric
+)
+
+type12 <- annotType$designTypeNumeric[match(rownames(betaQN),names(annotType))]
+```
+```{R, eval = FALSE}
+### BMIQ
+set.seed (946)
+doParallel::registerDoParallel(cores = 8)
+betaQN_BMIQ <- plyr::aaply(
+  betaQN, 2,
+  function(x){
+    norm_ls <- BMIQ(x, design.v = type12, plots = FALSE)
+    return (norm_ls$nbeta)
+  },.progress = "time",.parallel = TRUE
+) %>% t()
+colnames(betaQN_BMIQ) <- substr(colnames(betaQN_BMIQ),1,stringr::str_length(pheno_df$sample) %>% unique)
+
+save(betaQN_BMIQ, pheno_df, file = paste0(data.dir.probes.normalization, "GASPARONI_QNBMIQ.rda"))
+```
+
+```{R, include = FALSE}
+load(paste0(data.dir.probes.normalization, "GASPARONI_QNBMIQ.rda"))
+```
+
+```{R}
+##### 6. Density plot after normalization and BMIQ #############################
+matdensity(object = betaQN_BMIQ,
+           groupFactor =  pheno_df$stage %>%  as.factor(),
+           xlab = " ", 
+           ylab = "density",
+           main = "Beta Values", 
+           brewer.n = 8, 
+           brewer.name = "Dark2")
+
+legend('top',
+       paste0("stage ", levels( pheno_df$stage %>%  as.factor())),
+       col = c(1:7), lty = 1, lwd = 3)
+```
+
+# Outliers detection - PCA analysis
+
+1. estimate standard deviation for each probe
+2. select most variable probes (e.g. n = 50,000)
+3. pca plot
+
+Input: 
+
+- GASPARONI_QNBMIQ.rds
+- pheno_df.RDS
+
+Output: 
+
+- GASPARONI_PCs_usingBetas.csv, 
+- PCA plots
+- GASPARONI_QNBMIQ_PCfiltered.RDS
+- pheno_df.RDS
+
+
+```{R}
+# plotPCA and OrderDataBySd functions
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+```
+
+```{R}
+### merge in group info
+## add center and scale
+## compare M values vs. beta values
+## with and without center / scale
+
+##### 0.Import datasets ########################################################
+load(paste0(data.dir.probes.normalization, "GASPARONI_QNBMIQ.rda"))
+identical(colnames(betaQN_BMIQ), pheno_df$sample)
+
+### transform to m values
+mvalue_mat <- log2(betaQN_BMIQ / (1 - betaQN_BMIQ)) #dim: 437713 142
+
+pheno_df <- subset(pheno_df, pheno_df$sample %in% colnames(betaQN_BMIQ)) #dim: 142 7
+
+# both_df$stage <- as.numeric(as.character(both_df$stage))
+
+pheno_df$stage3 <- pheno_df$stage
+pheno_df$stage3[pheno_df$stage <= 2] <- '0-2'
+pheno_df$stage3[pheno_df$stage > 2 & pheno_df$stage < 5] <- '3-4'
+pheno_df$stage3[pheno_df$stage >= 5] <- '5-6'
+
+
+##### 1.Order matrix by most variable probes on top ############################
+
+betaOrd_mat <- OrderDataBySd(betaQN_BMIQ) #dim: 391482 142
+
+mOrd_mat <- OrderDataBySd(mvalue_mat)  #dim: 391482 142
+
+betaOrd_matPlot <- betaOrd_mat[, pheno_df$sample] #dim: 391482 142
+mOrd_matPlot <- mOrd_mat[, pheno_df$sample]       #dim: 391482 142
+identical(pheno_df$sample, colnames(betaOrd_matPlot))
+identical(pheno_df$sample, colnames(mOrd_matPlot))
+
+expSorted_mat = betaOrd_mat #dim: 391482 142
+
+pca <- prcomp(t(expSorted_mat[1:50000, ]),
+              center = TRUE,
+              scale = TRUE)
+
+d <- data.frame(PC1 = pca$x[, 1], PC2 = pca$x[, 2])
+
+meanPC1 <- mean (d$PC1)
+sdPC1   <- sd (d$PC1)
+
+meanPC2 <- mean (d$PC2)
+sdPC2   <- sd (d$PC2)
+
+out3sdPC1_1 <- meanPC1 - 3 * sdPC1
+out3sdPC1_2 <- meanPC1 + 3 * sdPC1
+
+out3sdPC2_1 <- meanPC2 - 3 * sdPC2
+out3sdPC2_2 <- meanPC2 + 3 * sdPC2
+
+d$outlier_PC1[d$PC1 >= out3sdPC1_1 & d$PC1 <= out3sdPC1_2] <- 0
+d$outlier_PC1[d$PC1 < out3sdPC1_1 | d$PC1 > out3sdPC1_2] <- 1
+
+d$outlier_PC2[d$PC2 >= out3sdPC2_1 & d$PC2 <= out3sdPC2_2] <- 0
+d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
+
+readr::write_csv(d, paste0(data.dir.pca, "GASPARONI_PCs_usingBetas.csv"))
+```
+
+```{R}
+##### 2.PCA plot ###############################################################
+library(ggplot2)
+library(ggrepel)
+
+### beta values
+byStage <- plotPCA(
+  dataset = "Gasparoni: beta values",
+  expSorted_mat = betaOrd_mat,
+  pheno = pheno_df,
+  group_char = "stage3",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+
+bySex <- plotPCA(
+  dataset = "Gasparoni: beta values",
+  expSorted_mat = betaOrd_mat,
+  pheno = pheno_df,
+  group_char = "sex",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+
+
+#### M values
+byStage <- plotPCA(
+  dataset = "Gasparoni: M values",
+  expSorted_mat = mOrd_mat,
+  pheno = pheno_df,
+  group_char = "stage3",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+
+bySex <- plotPCA(
+  dataset = "Gasparoni: M values",
+  expSorted_mat = mOrd_mat,
+  pheno = pheno_df,
+  group_char = "sex",
+  ntop = 50000,
+  center = TRUE,
+  scale = TRUE
+)
+##### 3.Filter samples by PCA, save files ######################################
+
+noOutliers <- d[which(d$outlier_PC1 == 0 & d$outlier_PC2 == 0), ]
+betaQN_BMIQ_PCfiltered <- betaQN_BMIQ[, rownames(noOutliers)] #dim: 433656 59
+saveRDS(betaQN_BMIQ_PCfiltered, paste0(data.dir.pca, "Gasparoni_QNBMIQ_PCfiltered.RDS"))
+
+pheno_df <- pheno_df[pheno_df$sample %in% rownames(noOutliers),] #dim: 59 6
+saveRDS(pheno_df, paste0(data.dir.pca, "pheno_df.RDS"))
+```
+
+# Summary after QC steps
+
+## Data and metadata
+```{R}
+nb.samples.with.clinical.after.pca <- ncol(betaQN_BMIQ_PCfiltered)
+dim(betaQN_BMIQ_PCfiltered)
+dim(pheno_df)
+pheno_df %>% 
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "Samples metadata")
+```
+
+```{R}
+ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8)
+ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8,facet.by = "sex",fill = "sex")
+ggpubr::gghistogram(data = pheno_df, x = "age.brain",bins = 20)
+ggpubr::gghistogram(data = pheno_df, x = "age.brain",bins = 20,fill = "sex",facet.by = "sex")
+```
+
+
+## Numbers of samples and probes removed in each step
+
+```{R}
+df.samples <- data.frame("Number of samples" =  c(nb.samples, 
+                                                  nb.samples.bc.filtered,
+                                                  nb.samples.with.clinical, 
+                                                  nb.samples.with.clinical.after.pca),
+                         "Description" = c("total number of samples",
+                                           "samples with bisulfate conversion > 88",
+                                           "samples with clinical data",
+                                           "Samples after PCA"),
+                         "Difference" = c("-",
+                                          nb.samples.bc.filtered - nb.samples ,
+                                          nb.samples.with.clinical - nb.samples.bc.filtered ,
+                                          nb.samples.with.clinical.after.pca - nb.samples.with.clinical)
+)    
+df.samples           
+
+# Create summary table
+df.probes <- data.frame("Number of probes" = c(nb.probes,
+                                               nb.probes.detectP, 
+                                               nb.probes.detectP.cg,
+                                               nb.probes.cg.dmrcate),
+                        "Description" = c("total number of probes in raw data",
+                                          "detection P < 0.01",
+                                          "only probes that start with cg",
+                                          "DMRcate"),
+                        "Difference" = c("-",
+                                         nb.probes.detectP - nb.probes ,
+                                         nb.probes.detectP.cg - nb.probes.detectP,
+                                         nb.probes.cg.dmrcate - nb.probes.detectP.cg)
+)
+df.probes
+
+save(df.samples,df.probes,file = file.path(data.dir.table, "GASPARONI_table.rda"))
+```
+
+# Compute neuron proportion
+
+Data from  https://www.tandfonline.com/doi/full/10.4161/epi.23924
+
+- Input: Gasparoni_QNBMIQ_PCfiltered.RDS, pheno_df.RDS
+
+- Output: pheno_withNeuronProp_df.RDS
+
+```{R}
+objects <- load("../../CET/CETS_Image.RData")
+objects
+```
+
+## Get reference profile from Caucasions + controls 
+```{R}
+idx <- list(
+  controlNeuron = pdBrain$celltype == "N" & pdBrain$diag == "Control" & pdBrain$ethnicity == "Caucasian",
+  controlGlia   = pdBrain$celltype == "G" & pdBrain$diag == "Control" & pdBrain$ethnicity == "Caucasian"
+)
+
+refProfile <- getReference(brain, idx)
+head(refProfile)
+
+
+##### 2. Estimate proportions of neurons in PFC samples ########################
+
+### Limit to 10,000 cpgs in the refProfile dataset
+pfc <- readRDS(paste0(data.dir.pca, "Gasparoni_QNBMIQ_PCfiltered.RDS")) #dim: 433656 59
+
+selected <- rownames(pfc) %in% rownames(refProfile)
+table(selected)
+
+pfc.refcpgs <- pfc[selected, ] #dim: 9530 59
+
+### Estimate proportion of neurons
+prop <- data.frame(estProportion(pfc.refcpgs, profile = refProfile))
+colnames(prop) <- "prop.neuron"
+
+
+##### 3. Merge pfc.refcpgs with phenotype file #################################
+pheno <- readRDS(paste0(data.dir.pca, "pheno_df.RDS"))
+
+pheno_final <- merge(
+  pheno,
+  prop,
+  by.x = "sample",
+  by.y = "row.names"
+)
+
+saveRDS(pheno_final, paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS"))
+pheno_final %>% head
+```
+
+# Linear regression by cpgs Methylation 
+
+Input: 
+
+- Gasparoni_QNBMIQ_PCfiltered.RDS,
+- pheno59_withNeuronProp_df.RDS
+
+Output:
+
+- Gasparoni_single_cpg_pVal_df.csv
+
+## Import datasets
+
+```{R}
+beta_mat <- readRDS(paste0(data.dir.pca, "Gasparoni_QNBMIQ_PCfiltered.RDS")) 
+pheno_df <- readRDS(paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS")) 
+```
+
+## Test all cpgs
+
+```{R, eval = TRUE}
+### Compute M values
+mval_mat <- log2(beta_mat / (1 - beta_mat))
+
+pheno_df$Sample <- pheno_df$sample
+
+identical(pheno_df$Sample, colnames(mval_mat))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+# If rosmap cohort, don't forget batch effect
+
+str(pheno_df)
+
+is(pheno_df$stage,"numeric")
+is(pheno_df$age.brain,"numeric")
+is(pheno_df$prop.neuron,"numeric")
+```
+
+
+```{R, eval = FALSE}
+predictors_char <- "stage"
+covariates_char <- c("age.brain", "sex", "prop.neuron", "slide")
+
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+results_ordered_df <- plyr::adply(mval_mat,1, function(row){
+  
+  sumOneRegion_df <- data.frame(t(row))
+  
+  result <- TestSingleRegion(
+    predictors_char = predictors_char,
+    covariates_char = covariates_char,
+    pheno_df = pheno_df,
+    sumOneRegion_df = sumOneRegion_df
+  )
+  result
+}, .progress = "time",.parallel = TRUE,.id = "cpg")
+colnames(results_ordered_df)[1] <- "cpg"
+
+identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+
+results_ordered_df$fdr <- p.adjust(
+    results_ordered_df$pValue,
+    method = "fdr"
+)
+
+write.csv(
+  results_ordered_df,
+  paste0(data.dir.single.cpg.pval, "Gasparoni_single_cpg_pVal_df.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+results_ordered_df <- readr::read_csv(
+  paste0(data.dir.single.cpg.pval, "Gasparoni_single_cpg_pVal_df.csv"),
+  col_types = readr::cols())
+results_ordered_df
+```
+
+
+# Linear regression by regions median Methylation 
+
+## Residuals control and coMethylated Regions
+
+1. Take residuals
+2. Find co-methylated regions
+
+Input: 
+
+- QNBMIQ_PCfiltered
+- pheno_withNeuronProp_df
+
+Output: 
+
+- QNBMIQ_PCfiltered_mvalResiduals
+- residuals_cometh_ls
+
+### Residuals
+
+```{R, eval = FALSE}
+##### 1. Import datasets #######################################################
+beta_mat <- readRDS(paste0(data.dir.pca, "Gasparoni_QNBMIQ_PCfiltered.RDS")) #dim:433656 59
+pheno_df <- readRDS(paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS")) #dim:59 7
+
+### Compute M values
+mvalue_mat <- log2(beta_mat / (1 - beta_mat))
+
+### Reorder samples based on pheno_df
+mvalue_mat <- mvalue_mat[, pheno_df$sample]
+
+identical(colnames(mvalue_mat),  pheno_df$sample)
+
+### Take residuals
+lmF <- function(mval){
+  fitE <- lm(
+    as.numeric(mval) ~ age.brain + sex + prop.neuron + as.character(slide), #add batch if rosmap
+    data = pheno_df,
+    na.action = na.exclude
+  )
+  residuals (fitE)
+}
+doParallel::registerDoParallel(cores = 4)
+resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = TRUE)
+rownames(resid) <- resid[,1]
+resid[,1] <- NULL
+colnames(resid) <- colnames(mvalue_mat)
+dim(resid)
+dim(mvalue_mat)
+
+### Save dataset
+saveRDS(
+  resid,
+  paste0(data.dir.residuals, "Gasparoni_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+)
+```
+
+### Find co-methylated regions
+
+```{R, eval = FALSE}
+### Import datasets
+mvalue_residuals_mat <- readRDS(
+  paste0(data.dir.residuals, "Gasparoni_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+)
+
+### Call in functions
+library(coMethDMR)
+library(BiocParallel)
+
+probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "450k",
+                                                      clusterType = "regions")
+
+ncores <- parallel::detectCores()/2
+### Find co-methylated clusters
+coMeth_ls <- CoMethAllRegions(
+  dnam = mvalue_residuals_mat,      
+  betaToM = FALSE,                   
+  CpGs_ls = probes.cluster.all,
+  arrayType = "450k",
+  rDropThresh_num = 0.4,
+  minPairwiseCorr = NULL,
+  method = "spearman",             
+  returnAllCpGs = TRUE,              
+  output = "all",
+  nCores_int = ncores,
+  progressbar = FALSE
+)
+
+saveRDS(
+  coMeth_ls,
+  paste0(data.dir.residuals,"Gasparoni_residuals_cometh_input_ls.RDS")
+)
+```
+
+## Linear regression by regions median Methylation 
+
+1. Calculate medians by cluster and sample
+2. linear regression
+
+Input: 
+
+- QNBMIQ_PCfiltered,
+- pheno_withNeuronProp_df
+- residuals_cometh_input_ls
+
+Output: 
+
+- info_df
+- mediansMval_df
+- linear_df_aging
+
+### Calculate medians by cluster and sample
+
+```{R, eval = FALSE}
+### Import datasets
+beta_mat <- readRDS(paste0(data.dir.pca,
+                           "Gasparoni_QNBMIQ_PCfiltered.RDS"))
+pheno_df <- readRDS(paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS"))
+mval_mat <- log2(beta_mat / (1 - beta_mat)) %>% as.matrix()
+coMeth_ls <- readRDS(
+  paste0(data.dir.residuals, "Gasparoni_residuals_cometh_input_ls.RDS")
+)
+
+### Create info dataset
+input_cometh <- data.frame(
+  inputRegion = coMeth_ls$inputRegion_chr,
+  nCoMethRegion = coMeth_ls$nCoMethRegions_num,
+  coMethRegion = names(coMeth_ls$coMeth_ls),
+  nCpGs = unlist(lapply(coMeth_ls$coMeth_ls, length), use.names = FALSE),
+  stringsAsFactors = FALSE
+)
+
+input_cometh_nodup <- input_cometh[
+  !duplicated(input_cometh$coMethRegion),
+  ]
+colnames(input_cometh_nodup) <- c(
+  paste0(cohort, "_inputRegion"),
+  paste0(cohort, "_nCoMethRegion"),
+  paste0(cohort, "_coMethRegion"),
+  paste0(cohort, "_nCpGs")
+)
+
+saveRDS(
+  input_cometh_nodup,
+  paste0(data.dir.median, cohort,"_info_df.rds")
+)
+
+### Take median of probes in each cluster for each sample
+filename <-  paste0(paste0(data.dir.median, cohort, "_mediansMval_df.rds"))
+library(robustbase)
+mval_mat <- mval_mat[rownames(mval_mat) %in% unlist(coMeth_ls$coMeth_ls),]
+if(!file.exists(filename)){
+  medianMval.df <- plyr::ldply(
+    coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))],
+    function(probes){
+      colMedians(mval_mat[as.character(probes),], na.rm = TRUE)
+    },
+    .progress = "time"
+  )
+  medianMval.df$.id <- NULL
+  colnames(medianMval.df) <- colnames(mval_mat)
+  saveRDS(medianMval.df, file = filename)
+} else {
+  medianMval.df <- readRDS(filename)
+}
+```
+
+### Test all regions -- linear regressions
+
+```{R, eval = TRUE}
+### Import datasets
+cohort <- "Gasparoni"
+info_df <- readRDS(dir(data.dir.median, pattern = "info", full.names = TRUE))
+mediansMval_df <- readRDS(dir(data.dir.median, pattern = "mediansMval", full.names = TRUE))
+pheno_df <- readRDS(paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS")) 
+
+### Check variables before fitting model
+pheno_df$Sample <- pheno_df$sample
+identical(pheno_df$Sample, colnames(mediansMval_df))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+# If rosmap cohort, don't forget batch effect
+
+str(pheno_df)
+```
+
+```{R, eval = FALSE}
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+predictors_char <- "stage"
+covariates_char <- c("age.brain", "sex", "prop.neuron", "slide")
+
+res_df <- TestAllRegions_noInfo(
+  predictors_char = predictors_char,
+  covariates_char = covariates_char,
+  pheno_df = pheno_df,
+  summarizedRegions_df = mediansMval_df
+)
+
+colnames(res_df) <- c(
+  paste0(cohort, "_estimate"),
+  paste0(cohort, "_se"),
+  paste0(cohort, "_pVal"),
+  paste0(cohort, "_fdr")
+)
+
+res_withInfo_df <- cbind(info_df, res_df)
+
+saveRDS(
+  res_withInfo_df,
+  paste0(data.dir.median,  cohort, "_linear_df.rds")
+)
+```
+
+```{R}
+file <- dir(data.dir.median,pattern = paste0(".*linear_df"),
+            recursive = T,
+            full.names = TRUE,
+            ignore.case = T)
+file
+res_withInfo_df <- readRDS(file)
+dim(res_withInfo_df)
+res_withInfo_df
+```
+
+# Data final
+
+```{R}
+dir(path = data.dir,recursive = T, pattern = ".rda|.csv|.RDS")
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```
