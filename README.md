@@ -50,15 +50,15 @@ Each of the files has the following structure:
 
 
 #### Files
-| File                 | Dataset |
-|----------------------|-------------|
-| Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) |
-| London.Rmd           |   London (Lunnon, 2014)    |
-| London_blood.Rmd     |   London (Lunnon, 2014)     |
-| MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  |
-| ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    |
-| SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)|
-| Semick.Rmd           |   Semick (Semick et al. 2019)   |
+| File                 | Dataset | HTML |
+|----------------------|-------------|-------------| 
+| Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)| [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| Semick.Rmd           |   Semick (Semick et al. 2019)   | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
 
 ### Meta-analysis 
 
@@ -90,10 +90,9 @@ The cohort specific p-values for each contiguous genomic region were then combin
 Co-methylated DMRs with FDR less than 5% were considered to be significant.
 
 #### Files
-| File                 | 
-|----------------------|
-| Meta-analysis.Rmd    | 
-
+| File                 | HTML |
+|----------------------|----------------------|
+| Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
 
 ### Matched Meta-analysis
 
@@ -105,9 +104,9 @@ The matched samples were analyzed in the same way as described above, except by 
 
 #### Files
 
-| File                 | 
-|----------------------|
-| Matched-analysis.Rmd | 
+| File                 | HTML |
+|----------------------|----------------------|
+| Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
 
 ### Correlation of methylation changes in brain and blood samples
 
@@ -121,9 +120,9 @@ In addition, we also conducted look up analysis using the BeCon tool, which comp
 Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
 
 #### Files
-| File                 |
-|----------------------|
-| London_blood_brain_correlation.Rmd | 
+| File                 |    HTML                  | 
+|----------------------|----------------------|
+| London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
 
@@ -162,6 +161,6 @@ We assumed an exchangeable working correlation structure for the clusters of cor
 long with log link and gamma distribution for the outcome variable. 
 
 #### Files
-| File                 | 
-|----------------------|
-| DMR_gene_expression_analysis.Rmd |   
+| File                 |                      | 
+|----------------------|----------------------|
+| DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
