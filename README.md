@@ -19,16 +19,17 @@ Authors:
 
 #### Descritption
 
-First, we performed cohort specific analysis for individual CpGs. 
-The association between CpG methylation levels and Braak stage was assessed using linear statistical models in each cohort. 
-Given that methylation M-values (logit transformation of methylation beta values) 
-has better statistical properties (i.e. homoscedasticity) for linear regression models, 
-we used the M-values as the outcome variable in our statistical models. 
-We adjusted for potential confounding factors including 
-age at death, sex, methylation slide effects, and proportion of different cell types (i.e. neurons vs. glia cells)
-in the samples estimated by the CETS R package. 
-For ROSMAP cohort, we additionally included variable "batch" that was available 
-in the dataset to adjust for technical batches occurred during data generation.    
+> First, we performed cohort specific analysis for individual CpGs. 
+> The association between CpG methylation levels and Braak stage was assessed using linear statistical models in each cohort. 
+> Given that methylation M-values (logit transformation of methylation beta values) 
+> has better statistical properties (i.e. homoscedasticity) for linear regression models, 
+> we used the M-values as the outcome variable in our statistical models. 
+> We adjusted for potential confounding factors including 
+> age at death, sex, methylation slide effects, and proportion of different cell types (i.e. neurons vs. glia cells)
+> in the samples estimated by the CETS R package. 
+> For ROSMAP cohort, we additionally included variable "batch" that was available 
+> in the dataset to adjust for technical batches occurred during data generation.    
+
 
 
 Each of the files has the following structure:
