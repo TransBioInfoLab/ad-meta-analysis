@@ -95,10 +95,10 @@ Each of the files has the following structure:
 
 ### Matched Meta-analysis
 
-To prioritize methylation changes most likely to be affected by the AD pathogenesis process, 
+> To prioritize methylation changes most likely to be affected by the AD pathogenesis process, 
 we performed additional analysis using an alternative strategy to control for confounding effects for age. 
-More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. 
-The matched samples were analyzed in the same way as described above, except by removing age at death effect in the linear models. 
+> More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. 
+> The matched samples were analyzed in the same way as described above, except by removing age at death effect in the linear models. 
 
 
 | File                 | Description |
