@@ -1,0 +1,1569 @@
+---
+title: "Meta-analysis dataset"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    highlight: zenburn
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+
+# Main libraries and configuration
+
+```{R}
+dir.result <- "matched_analysis_results/"
+dir.dmr <- "meta_analysis_region_results/step4_dmr_vs_cpgs/" 
+dir.single.cpg <- "meta_analysis_single_cpg_results/"        
+dir.combp <- "../../Michael/data_for_combp-matchedAnalysis_1-29-2020/results/"  
+dir.create(dir.result)
+```
+
+# Matched analysis
+
+```{R Matched_libs,message = FALSE, results = "hide"}
+library(dplyr)
+library(ExperimentHub)
+library(GenomicRanges)
+library(e1071)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+```
+
+```{R}
+files <- dir(pattern = paste0(".*neuro"),
+             recursive = T,
+             full.names = TRUE,
+             ignore.case = T)
+pheno.ls <- lapply(files, function (f){
+  readRDS(f)
+})
+names(pheno.ls) <- files %>% dirname %>% dirname %>% basename
+lapply(pheno.ls,dim)
+```
+
+## Rosmap dataset
+
+```{R, eval = FALSE}
+rosmap <- pheno.ls$ROSMAP[, c("Sample", "msex", "braaksc", "age_death")]
+rosmap$age_death <- as.numeric(as.character(rosmap$age_death))
+rosmap$age <- ifelse(is.na(rosmap$age_death), 90, rosmap$age_death)
+rosmap$status <- ifelse(rosmap$braaksc < 3, "Control", "Case")
+rosmap$status <- as.factor(rosmap$status)
+rosmap$sex <- ifelse(rosmap$msex == 1, "Male", "Female")
+rosmap$sex <- as.factor(rosmap$sex)
+str(rosmap)
+
+
+{
+  set.seed(5) # matchControl uses a distance calculation, if ties, it uses sample function
+  m_ros <- matchControls(
+    formula = status ~ age,
+    data = rosmap,
+    contlabel = "Case",
+    caselabel = "Control"
+  )
+}
+
+outFile <- data.frame(
+  "matchedControls" = rosmap[m_ros$cases, "Sample"], 
+  "matchedCases" = rosmap[m_ros$controls, "Sample"]
+)
+
+outFileControl <- merge(outFile, rosmap[, c("Sample", "status", "age", "sex")], 
+                        by.x = "matchedControls",
+                        by.y = "Sample")
+
+colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
+
+outFileControlCases <- merge(outFileControl, 
+                             rosmap[, c("Sample", "status", "age", "sex")],
+                             by.x = "matchedCases",
+                             by.y = "Sample")
+
+colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
+
+outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+
+write.csv(
+  outFileControlCases,
+  paste0(dir.result, "Rosmap_matchedCaseControls.csv"),
+  row.names = FALSE
+)
+
+ROSMAP_matchAgeSex <-  outFileControlCases %>% 
+  dplyr::filter(abs(age_control - age_case) <= 1)
+dim(ROSMAP_matchAgeSex)
+
+table(ROSMAP_matchAgeSex$status_control, ROSMAP_matchAgeSex$sex_control)
+table(ROSMAP_matchAgeSex$status_case, ROSMAP_matchAgeSex$sex_case)
+
+ROSMAP_samples <- c(
+  as.character(ROSMAP_matchAgeSex$matchedControls),
+  as.character(ROSMAP_matchAgeSex$matchedCases)
+)
+saveRDS(
+  ROSMAP_samples,
+  paste0(dir.result, "ROSMAP_samples.RDS")
+)
+```
+
+### Samples
+
+```{R}
+length(readRDS(paste0(dir.result, "ROSMAP_samples.RDS")))
+```
+
+### Linear model
+
+```{R ROSMAP_DMR, eval = FALSE}
+### Import datasets
+cohort <- "ROSMAP"
+pheno <- "pheno"
+
+info_df <- readRDS(
+  dir("DATASETS/ROSMAP////",pattern = "info",recursive = TRUE,full.names = TRUE)
+)
+mediansMval_df <- readRDS(
+  dir("DATASETS/ROSMAP/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+)
+pheno_df <- readRDS(
+  dir("DATASETS/ROSMAP/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "ROSMAP_samples.RDS")
+)
+
+### Limit samples
+mediansMval_df <- mediansMval_df[, samples]
+pheno_df <- pheno_df[pheno_df$Sample %in% samples, ]
+
+mediansMval_df <- mediansMval_df[, pheno_df$Sample]
+
+identical(pheno_df$Sample, colnames(mediansMval_df))
+
+str(pheno_df)
+
+pheno_df$age_death <- as.numeric(as.character(pheno_df$age_death))
+pheno_df$msex <- as.factor(as.character(pheno_df$msex))
+pheno_df$Slide <- as.factor(as.character(pheno_df$Slide))
+pheno_df$batch <- as.factor(as.character(pheno_df$batch))
+
+predictors_char <- "braaksc"
+covariates_char <- c("msex", "prop.neuron", "Slide", "batch")
+
+
+res_df <- TestAllRegions_noInfo(
+  predictors_char = predictors_char,
+  covariates_char = covariates_char,
+  pheno_df = pheno_df,
+  summarizedRegions_df = mediansMval_df,
+  cores = 4
+)
+
+colnames(res_df) <- c(
+  paste0(cohort, "_estimate"),
+  paste0(cohort, "_se"),
+  paste0(cohort, "_pVal"),
+  paste0(cohort, "_fdr")
+)
+
+res_withInfo_df <- cbind(info_df, res_df)
+
+saveRDS(
+  res_withInfo_df,
+  paste0(dir.result, cohort, "_matched_linear_df.rds")
+)
+```
+
+### Single cpg linear model
+
+```{R ROSMAP_singleCpG, eval = TRUE}
+### Import datasets
+beta_mat <- readRDS(
+  "DATASETS/ROSMAP/step7_pca_filtering/ROSMAP_QNBMIQ_PCfiltered.RDS"
+) 
+pheno_df <- readRDS(
+  dir("DATASETS/ROSMAP/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "ROSMAP_samples.RDS")
+)
+
+### Limit samples
+beta_mat <- beta_mat[, samples]
+pheno_df <- pheno_df[pheno_df$Sample %in% samples, ]
+
+beta_mat <- beta_mat[, pheno_df$Sample]
+
+identical(pheno_df$Sample, colnames(beta_mat))
+
+### Compute M values
+mval_mat <- log2(beta_mat / (1 - beta_mat))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$Sentrix_ID)
+pheno_df$batch <- as.factor(pheno_df$batch)
+
+str(pheno_df)
+
+is(pheno_df$braaksc,"numeric")
+is(pheno_df$prop.neuron,"numeric")
+```
+
+```{R, eval = FALSE}
+predictors_char <- "braaksc"
+covariates_char <- c("sex", "prop.neuron", "slide", "batch")
+
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+results_ordered_df <- plyr::adply(mval_mat,1, function(row){
+  
+  sumOneRegion_df <- as.data.frame(t(row))
+  
+  result <- TestSingleRegion(
+    predictors_char = predictors_char,
+    covariates_char = covariates_char,
+    pheno_df = pheno_df,
+    sumOneRegion_df = sumOneRegion_df
+  )
+  result
+}, .progress = "time",.parallel = TRUE,.id = "cpg")
+colnames(results_ordered_df)[1] <- "cpg"
+
+identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+
+write.csv(
+  results_ordered_df,
+  paste0(dir.result, "ROSMAP_matched_single_cpg_linear_df.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+results_ordered_df <- readr::read_csv(
+  paste0(dir.result, "ROSMAP_matched_single_cpg_linear_df.csv")
+)
+results_ordered_df
+```
+
+
+## London dataset
+
+```{R, eval = FALSE}
+london <- pheno.ls$LONDON[, c("sample", "sex", "stage", "age.brain")]
+london$status <- ifelse(london$stage < 3, "Control", "Case")
+london$status <- as.factor(london$status)
+london$sex <- as.factor(london$sex)
+str(london)
+
+{
+  set.seed(5)
+  m_london <- matchControls(
+    formula = status ~ age.brain,
+    data = london,
+    contlabel = "Case",
+    caselabel = "Control"
+  )
+}
+outFile <-  data.frame(
+  "matchedControls" = london[m_london$cases, "sample"],
+  "matchedCases" = london[m_london$controls, "sample"]
+)
+
+outFileControl <- merge(outFile,
+                        london[, c("sample", "status", "age.brain", "sex")],
+                        by.x = "matchedControls",
+                        by.y = "sample")
+colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
+
+outFileControlCases <- merge(outFileControl,
+                             london[, c("sample", "status", "age.brain", "sex")],
+                             by.x = "matchedCases",
+                             by.y = "sample")
+colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
+outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+
+write.csv(
+  outFileControlCases,
+  paste0(dir.result, "London_matchedCaseControls.csv"),
+  row.names = FALSE
+)
+
+
+
+London_matchAgeSex <- outFileControlCases %>% 
+  dplyr::filter(abs(age_control - age_case) <= 1)
+
+dim(London_matchAgeSex)
+
+table(London_matchAgeSex$status_control, London_matchAgeSex$sex_control)
+table(London_matchAgeSex$status_case, London_matchAgeSex$sex_case)
+London_samples <- c(
+  as.character(London_matchAgeSex$matchedControls),
+  as.character(London_matchAgeSex$matchedCases)
+)
+saveRDS(
+  London_samples,
+  paste0(dir.result, "London_samples.RDS")
+)
+
+```
+
+
+
+### Samples
+
+
+```{R}
+length(readRDS(paste0(dir.result, "London_samples.RDS")))
+```
+
+
+
+### Linear model
+
+
+```{R London_DMR, eval = TRUE}
+### Import datasets
+cohort <- "London"
+pheno <- "pheno"
+
+info_df <- readRDS(
+  dir("DATASETS/LONDON///",pattern = "info",recursive = TRUE,full.names = TRUE)
+)
+mediansMval_df <- readRDS(
+  dir("DATASETS/LONDON/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+)
+pheno_df <- readRDS(
+  dir("DATASETS/LONDON/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "London_samples.RDS")
+)
+
+### Limit samples
+mediansMval_df <- mediansMval_df[, samples]
+pheno_df <- pheno_df[pheno_df$sample %in% samples, ]
+
+mediansMval_df <- mediansMval_df[, pheno_df$sample]
+
+### Check variables before fitting model
+pheno_df$Sample <- pheno_df$sample
+
+identical(pheno_df$Sample, colnames(mediansMval_df))
+
+str(pheno_df)
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+# If rosmap cohort, don't forget batch effect
+```
+
+```{R, eval = FALSE}
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+res_df <- TestAllRegions_noInfo(
+  predictors_char = predictors_char,
+  covariates_char = covariates_char,
+  pheno_df = pheno_df,
+  summarizedRegions_df = mediansMval_df,
+  cores = 4
+)
+
+colnames(res_df) <- c(
+  paste0(cohort, "_estimate"),
+  paste0(cohort, "_se"),
+  paste0(cohort, "_pVal"),
+  paste0(cohort, "_fdr")
+)
+
+res_withInfo_df <- cbind(info_df, res_df)
+
+saveRDS(
+  res_withInfo_df,
+  paste0(dir.result, cohort, "_matched_linear_df.rds")
+)
+```
+
+### Single cpg linear model
+
+```{R London_singleCpG, eval = TRUE}
+### Import datasets
+beta_mat <- readRDS(
+  "DATASETS/LONDON/step5_pca_filtering/London_PFC_QNBMIQ_PCfiltered.RDS"
+) 
+pheno_df <- readRDS(
+  dir("DATASETS/LONDON/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "London_samples.RDS")
+)
+
+### Limit samples
+pheno_df$Sample <- pheno_df$sample
+
+beta_mat <- beta_mat[, samples]
+pheno_df <- pheno_df[pheno_df$Sample %in% samples, ]
+
+beta_mat <- beta_mat[, pheno_df$Sample]
+
+identical(pheno_df$Sample, colnames(beta_mat))
+
+### Compute M values
+mval_mat <- log2(beta_mat / (1 - beta_mat))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+
+str(pheno_df)
+
+is(pheno_df$stage,"numeric")
+is(pheno_df$prop.neuron,"numeric")
+```
+
+```{R, eval = FALSE}
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+results_ordered_df <- plyr::adply(mval_mat,1, function(row){
+  
+  sumOneRegion_df <- as.data.frame(t(row))
+  
+  result <- TestSingleRegion(
+    predictors_char = predictors_char,
+    covariates_char = covariates_char,
+    pheno_df = pheno_df,
+    sumOneRegion_df = sumOneRegion_df
+  )
+  result
+}, .progress = "time",.parallel = TRUE,.id = "cpg")
+colnames(results_ordered_df)[1] <- "cpg"
+
+identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+
+write.csv(
+  results_ordered_df,
+  paste0(dir.result, "London_matched_single_cpg_linear_df.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+results_ordered_df <- readr::read_csv(
+  paste0(dir.result, "London_matched_single_cpg_linear_df.csv")
+)
+results_ordered_df
+```
+
+
+## Gasparoni dataset
+
+```{R, eval = FALSE}
+gasparoni <- pheno.ls$GASPARONI[, c("sample", "sex", "stage", "age.brain")]
+gasparoni <- gasparoni[, c("sample", "sex", "stage", "age.brain")]
+gasparoni$status <- ifelse(gasparoni$stage < 3, "Control", "Case")
+gasparoni$status <- as.factor(gasparoni$status)
+gasparoni$sex <- as.factor(gasparoni$sex)
+str(gasparoni)
+
+{
+  set.seed(5)
+  m_gasparoni <- matchControls(
+    formula = status ~ age.brain,
+    data = gasparoni,
+    contlabel = "Case",
+    caselabel = "Control"
+  )
+}
+
+outFile <- data.frame("matchedControls" = gasparoni[m_gasparoni$cases, "sample"], 
+                      "matchedCases" = gasparoni[m_gasparoni$controls, "sample"]
+)
+
+outFileControl <- merge(outFile,
+                        gasparoni[, c("sample", "status", "age.brain", "sex")],
+                        by.x = "matchedControls",
+                        by.y = "sample")
+colnames(outFileControl)[3:5] <-   c("status_control", "age_control", "sex_control")
+
+outFileControlCases <- merge(outFileControl,
+                             gasparoni[, c("sample", "status", "age.brain", "sex")],
+                             by.x = "matchedCases",
+                             by.y = "sample")
+colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
+
+outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+
+table(outFileControlCases$status_control,
+      outFileControlCases$sex_control)
+table(outFileControlCases$status_case,
+      outFileControlCases$sex_case)
+
+write.csv(
+  outFileControlCases,
+  paste0(dir.result, "Gasparoni_matchedCaseControls.csv"),
+  row.names = FALSE
+)
+
+
+Gasparoni_matchAgeSex <-  outFileControlCases %>% 
+  dplyr::filter(abs(age_control - age_case) <= 1)
+dim(Gasparoni_matchAgeSex)
+
+table(Gasparoni_matchAgeSex$status_control, Gasparoni_matchAgeSex$sex_control)
+table(Gasparoni_matchAgeSex$status_case, Gasparoni_matchAgeSex$sex_case)
+
+Gasparoni_samples <- c(
+  as.character(Gasparoni_matchAgeSex$matchedControls),
+  as.character(Gasparoni_matchAgeSex$matchedCases)
+)
+saveRDS(
+  Gasparoni_samples,
+  paste0(dir.result, "Gasparoni_samples.RDS")
+)
+
+```
+
+### Samples
+
+```{R}
+length(readRDS(paste0(dir.result, "Gasparoni_samples.RDS")))
+```
+
+
+
+### Linear model
+
+
+```{R gasparoni_DMR, eval = TRUE}
+
+### Import datasets
+cohort <- "Gasparoni"
+pheno <- "pheno"
+
+info_df <- readRDS(
+  dir("DATASETS/GASPARONI/",pattern = "info",recursive = TRUE,full.names = TRUE)
+)
+mediansMval_df <- readRDS(
+  dir("DATASETS/GASPARONI/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+)
+pheno_df <- readRDS(
+  dir("DATASETS/GASPARONI/step8_neuron_comp/",pattern = "",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "Gasparoni_samples.RDS")
+)
+
+### Limit samples
+mediansMval_df <- mediansMval_df[, samples]
+pheno_df <- pheno_df[pheno_df$sample %in% samples, ]
+
+mediansMval_df <- mediansMval_df[, pheno_df$sample]
+
+### Check variables before fitting model
+pheno_df$Sample <- pheno_df$sample
+
+identical(pheno_df$Sample, colnames(mediansMval_df))
+
+str(pheno_df)
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+# If rosmap cohort, don't forget batch effect
+```
+
+```{R, eval = FALSE}
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+res_df <- TestAllRegions_noInfo(
+  predictors_char = predictors_char,
+  covariates_char = covariates_char,
+  pheno_df = pheno_df,
+  summarizedRegions_df = mediansMval_df,
+  cores = 4
+)
+
+colnames(res_df) <- c(
+  paste0(cohort, "_estimate"),
+  paste0(cohort, "_se"),
+  paste0(cohort, "_pVal"),
+  paste0(cohort, "_fdr")
+)
+
+res_withInfo_df <- cbind(info_df, res_df)
+
+saveRDS(
+  res_withInfo_df,
+  paste0(dir.result, cohort, "_matched_linear_df.rds")
+)
+
+```
+
+### Single cpg linear model 
+
+```{R gasparoni_singleCpG, eval = TRUE}
+### Import datasets
+beta_mat <- readRDS(
+  "DATASETS/GASPARONI/step7_pca_filtering/Gasparoni_QNBMIQ_PCfiltered.RDS"
+) 
+pheno_df <- readRDS(
+  dir("DATASETS/GASPARONI/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "Gasparoni_samples.RDS")
+)
+
+### Limit samples
+pheno_df$Sample <- pheno_df$sample
+
+beta_mat <- beta_mat[, samples]
+pheno_df <- pheno_df[pheno_df$Sample %in% samples, ]
+
+beta_mat <- beta_mat[, pheno_df$Sample]
+
+identical(pheno_df$Sample, colnames(beta_mat))
+
+### Compute M values
+mval_mat <- log2(beta_mat / (1 - beta_mat))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+
+str(pheno_df)
+
+is(pheno_df$stage,"numeric")
+is(pheno_df$prop.neuron,"numeric")
+```
+
+
+```{R, eval = FALSE}
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+results_ordered_df <- plyr::adply(mval_mat,1, function(row){
+  
+  sumOneRegion_df <- as.data.frame(t(row))
+  
+  result <- TestSingleRegion(
+    predictors_char = predictors_char,
+    covariates_char = covariates_char,
+    pheno_df = pheno_df,
+    sumOneRegion_df = sumOneRegion_df
+  )
+  result
+}, .progress = "time",.parallel = TRUE,.id = "cpg")
+colnames(results_ordered_df)[1] <- "cpg"
+
+identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+
+write.csv(
+  results_ordered_df,
+  paste0(dir.result, "Gasparoni_matched_single_cpg_linear_df.csv"),
+  row.names = FALSE
+)
+```
+```{R}
+results_ordered_df <- readr::read_csv(
+  paste0(dir.result, "Gasparoni_matched_single_cpg_linear_df.csv")
+)
+results_ordered_df
+```
+
+
+## Mt.Sinai dataset
+
+```{R, eval = FALSE}
+mtsinai <- pheno.ls$MtSinai[, c("sample", "sex", "stage", "age.brain")]
+mtsinai$status <- ifelse(mtsinai$stage < 3, "Control", "Case")
+mtsinai$status <- as.factor(mtsinai$status)
+mtsinai$sex <- as.factor(mtsinai$sex)
+str(mtsinai)
+
+{
+  set.seed(5)
+  m_mtsinai <- matchControls(
+    formula = status ~ age.brain,
+    data = mtsinai,
+    contlabel = "Case",
+    caselabel = "Control"
+  )
+}
+outFile <- data.frame(
+  "matchedControls" = mtsinai[m_mtsinai$cases, "sample"], 
+  "matchedCases" = mtsinai[m_mtsinai$controls, "sample"]
+)
+
+outFileControl <- merge(outFile, 
+                        mtsinai[, c("sample", "status", "age.brain", "sex")], 
+                        by.x = "matchedControls", 
+                        by.y = "sample")
+
+colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
+outFileControlCases <-  merge(outFileControl, 
+                              mtsinai[, c("sample", "status", "age.brain", "sex")], 
+                              by.x = "matchedCases", 
+                              by.y = "sample")
+colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
+outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+
+write.csv(
+  outFileControlCases,
+  paste0(dir.result, "MtSinai_matchedCaseControls.csv"),
+  row.names = FALSE
+)
+
+
+
+MtSinai_matchAgeSex <-  outFileControlCases %>% 
+  dplyr::filter(abs(age_control - age_case) <= 1)
+dim(MtSinai_matchAgeSex)
+
+
+table(MtSinai_matchAgeSex$status_control, MtSinai_matchAgeSex$sex_control)
+table(MtSinai_matchAgeSex$status_case, MtSinai_matchAgeSex$sex_case)
+
+MtSinai_samples <- c(
+  as.character(MtSinai_matchAgeSex$matchedControls),
+  as.character(MtSinai_matchAgeSex$matchedCases)
+)
+
+saveRDS(
+  MtSinai_samples,
+  paste0(dir.result, "MtSinai_samples.RDS")
+)
+```
+
+### Samples
+
+```{R}
+length(readRDS(paste0(dir.result, "MtSinai_samples.RDS")))
+```
+
+
+### Linear model
+
+```{R MtSinai_DMR, eval = TRUE}
+
+### Import datasets
+cohort <- "MtSinai"
+pheno <- "pheno"
+
+info_df <- readRDS(
+  dir("DATASETS/MtSinai//",pattern = "info",recursive = TRUE,full.names = TRUE)
+)
+mediansMval_df <- readRDS(
+  dir("DATASETS/MtSinai/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+)
+pheno_df <- readRDS(
+  dir("DATASETS/MtSinai/",pattern = "NeuronProp",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "MtSinai_samples.RDS")
+)
+
+### Limit samples
+mediansMval_df <- mediansMval_df[, samples]
+pheno_df <- pheno_df[pheno_df$sample %in% samples, ]
+
+mediansMval_df <- mediansMval_df[, pheno_df$sample]
+
+### Check variables before fitting model
+pheno_df$Sample <- pheno_df$sample
+
+identical(pheno_df$Sample, colnames(mediansMval_df))
+
+str(pheno_df)
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+# If rosmap cohort, don't forget batch effect
+```
+
+```{R, eval = FALSE}
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+res_df <- TestAllRegions_noInfo(
+  predictors_char = predictors_char,
+  covariates_char = covariates_char,
+  pheno_df = pheno_df,
+  summarizedRegions_df = mediansMval_df,
+  cores = 4
+)
+
+colnames(res_df) <- c(
+  paste0(cohort, "_estimate"),
+  paste0(cohort, "_se"),
+  paste0(cohort, "_pVal"),
+  paste0(cohort, "_fdr")
+)
+
+res_withInfo_df <- cbind(info_df, res_df)
+
+saveRDS(
+  res_withInfo_df,
+  paste0(dir.result, cohort, "_matched_linear_df.rds")
+)
+```
+
+### Single cpg linear model
+
+```{R MtSinai_singleCpG, eval = TRUE}
+### Import datasets
+beta_mat <- readRDS(
+  "DATASETS/MtSinai/step5_pca_filtering/MtSinai_QNBMIQ_PCfiltered.RDS"
+) 
+pheno_df <- readRDS(
+  dir("DATASETS/MtSinai/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+)
+samples <- readRDS(
+  paste0(dir.result, "MtSinai_samples.RDS")
+)
+
+### Limit samples
+pheno_df$Sample <- pheno_df$sample
+
+beta_mat <- beta_mat[, samples]
+pheno_df <- pheno_df[pheno_df$Sample %in% samples, ]
+
+beta_mat <- beta_mat[, pheno_df$Sample]
+
+identical(pheno_df$Sample, colnames(beta_mat))
+
+### Compute M values
+mval_mat <- log2(beta_mat / (1 - beta_mat))
+
+pheno_df$sex <- as.factor(pheno_df$sex)
+pheno_df$slide <- as.factor(pheno_df$slide)
+
+str(pheno_df)
+
+is(pheno_df$stage,"numeric")
+is(pheno_df$prop.neuron,"numeric")
+```
+
+```{R, eval = FALSE}
+predictors_char <- "stage"
+covariates_char <- c("sex", "prop.neuron", "slide")
+
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
+
+results_ordered_df <- plyr::adply(mval_mat,1, function(row){
+  
+  sumOneRegion_df <- as.data.frame(t(row))
+  
+  result <- TestSingleRegion(
+    predictors_char = predictors_char,
+    covariates_char = covariates_char,
+    pheno_df = pheno_df,
+    sumOneRegion_df = sumOneRegion_df
+  )
+  result
+}, .progress = "time",.parallel = TRUE,.id = "cpg")
+colnames(results_ordered_df)[1] <- "cpg"
+
+identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+
+write.csv(
+  results_ordered_df,
+  paste0(dir.result, "MtSinai_matched_single_cpg_linear_df.csv"),
+  row.names = FALSE
+)
+```
+```{R}
+results_ordered_df <- readr::read_csv(
+  paste0(dir.result, "MtSinai_matched_single_cpg_linear_df.csv")
+)
+results_ordered_df
+```
+
+
+# Meta-analysis Regions
+
+1. select the most significant cluster for each input region
+2. merge cohorts
+3. meta analysis
+4. add annotation
+5. Delete sig DMRs with cross-hybridizing or smoking probes 
+6. Compare with sig DMRs from main analysis 
+
+
+## Import datasets and pre-process for each cohort 
+
+```{R, eval = FALSE}
+library(dplyr)
+library(tidyr)
+preMeta <- function(cohort){
+  
+  ### Load data
+  file <- dir(path = "matched_analysis_results",
+              pattern = paste0(cohort,".*matched_linear_df"),
+              recursive = T,
+              full.names = TRUE,
+              ignore.case = T)
+  linear.results.final <- readRDS(file)
+  
+  ### select the most sig cometh region for each input region
+  pva.col <- grep("_pVal",colnames(linear.results.final),value = TRUE)
+  colnames(linear.results.final)[grep("inputRegion",colnames(linear.results.final))] <- "inputRegion"
+  
+  # !! is used to unquote an input 
+  # https://dplyr.tidyverse.org/articles/programming.html
+  result_sig <- linear.results.final %>%
+    group_by(inputRegion) %>%
+    filter((!!as.symbol(pva.col)) == min(!!as.symbol(pva.col)))
+  
+  data.frame(result_sig, stringsAsFactors = FALSE)
+}
+
+Gasparoni <- preMeta(cohort = "Gasparoni") 
+dim(Gasparoni)
+
+London_PFC <- preMeta(cohort = "London")
+dim(London_PFC)
+
+MtSinai <- preMeta(cohort = "MtSinai") 
+dim(MtSinai)
+
+ROSMAP <- preMeta(cohort = "ROSMAP")
+dim(ROSMAP)
+```
+
+
+## Merge cohorts 
+
+```{R, eval = FALSE}
+### merge datasets
+cohort_ls <- list(
+  Gasparoni = Gasparoni,
+  London_PFC = London_PFC,
+  MtSinai = MtSinai,
+  ROSMAP = ROSMAP
+)
+
+### outer join input region
+multi_cohorts <- Reduce(
+  function(x,y, ...) merge(x, y, by = "inputRegion", all = TRUE, ...),
+  cohort_ls
+)
+```
+
+## Meta analysis
+
+```{R, eval = FALSE}
+library(meta)
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+meta_df <- plyr::adply(.data = multi_cohorts, 
+                       .margins = 1, 
+                       .fun =  function(rowOne_df){
+                         
+                         est <- rowOne_df[grep("estimate",colnames(rowOne_df))] %>% as.numeric
+                         
+                         direction <-  paste(ifelse(
+                           is.na(est), ".",
+                           ifelse(est > 0, "+", "-")
+                         ),collapse = "")
+                         
+                         se <- rowOne_df[grep("se",colnames(rowOne_df))] %>% as.numeric
+                         cohort <- gsub("_se","",grep("se",colnames(rowOne_df),value = T))
+                         rowOne_reform_df <- data.frame(
+                           cohort = cohort,
+                           est = est,
+                           se = se,
+                           stringsAsFactors = FALSE
+                         )
+                         
+                         f <- metagen(
+                           TE = est,
+                           seTE = se,
+                           data = rowOne_reform_df
+                         )
+                         
+                         tibble::tibble(
+                           inputRegion = rowOne_df$inputRegion,
+                           estimate = f$TE.fixed,
+                           se = f$seTE.fixed,
+                           pVal.fixed = f$pval.fixed,
+                           pVal.random = f$pval.random,
+                           pValQ = f$pval.Q,
+                           direction = direction
+                         )
+                       }  , .progress = "time",
+                       .parallel = TRUE,
+                       .id = NULL
+)
+
+### create final pVal
+meta_df$pVal.final <- ifelse(
+  meta_df$pValQ > 0.05, meta_df$pVal.fixed, meta_df$pVal.random
+)
+
+### calculate fdr
+meta_df$fdr <- p.adjust(meta_df$pVal.final, method = "fdr")
+
+### order meta_df
+meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
+                             grep("_",colnames(meta_df),invert = F))]
+meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final),]
+```
+
+## Add annotation to input regions
+
+```{R, eval = FALSE}
+### find annotations
+library(coMethDMR)
+
+splited_input <- meta_final_ordered_df %>% 
+  tidyr::separate(col = inputRegion,into =  c("chrom", "start", "end"),remove = FALSE)
+splited_input_annot <- AnnotateResults(splited_input[,c("chrom", "start", "end")],nCores_int = 10) 
+
+### merge annotation with meta analysis data
+meta_ordered_withAnnot_df <- cbind(
+  meta_final_ordered_df, splited_input_annot[, 4:7]
+)
+
+### order columns
+meta_ordered_withAnnot_df <- meta_ordered_withAnnot_df %>% 
+  dplyr::select(c(1,
+                  (ncol(meta_ordered_withAnnot_df) - 3):ncol(meta_ordered_withAnnot_df),
+                  2:(ncol(meta_ordered_withAnnot_df) - 4))
+  )
+### save dataset
+write.csv(
+  meta_ordered_withAnnot_df,
+  paste0(dir.result, "meta_analysis_matched_df.csv"),
+  row.names = FALSE
+)
+
+meta_all_sig <- meta_ordered_withAnnot_df[
+  !is.na(meta_ordered_withAnnot_df$fdr) &
+    (meta_ordered_withAnnot_df$fdr < 0.05),  
+  ] #dim: 102 41
+row.names(meta_all_sig) <- NULL
+
+write.csv(
+  meta_all_sig,
+  paste0(dir.result, "meta_analysis_matched_sig_df.csv"),
+  row.names = FALSE
+)
+
+```
+
+## Overlap with comb-p DMRs 
+
+```{R eval = FALSE}
+library(GenomicRanges)
+```
+
+```{R eval = FALSE}
+matched_dmrs <- read.csv(
+  paste0(dir.result, "meta_analysis_matched_sig_df.csv")
+)
+matched_dmrs_gr <- matched_dmrs %>%
+  tidyr::separate("inputRegion", c("chrom", "start", "end")) %>%
+  makeGRangesFromDataFrame()
+
+combp_dmrs <- read.table(
+  paste0(dir.combp, "cnew.regions-p.bed"),
+  header = TRUE
+)
+colnames(combp_dmrs) <- c(
+  "chrom", "start", "end", "min_p", "n_probes", "z_p", "z_sidak_p"
+)
+combp_sig <- combp_dmrs %>% filter(z_sidak_p < 0.05 & n_probes > 2)
+combp_sig_gr <- makeGRangesFromDataFrame(combp_sig)
+
+overlapping.results <- matched_dmrs[
+  queryHits(findOverlaps(matched_dmrs_gr,combp_sig_gr)),
+  ]
+#No overlap with combp
+
+# overlapping.results.unique <- unique(overlapping.results)
+# 
+# write.csv(
+#     overlapping.results.unique,
+#     paste0(dir.combp, "matched_analysis_ov_comb_p.csv"),
+#     row.names = FALSE
+# )
+```
+
+## Delete sig DMRs with cross-hybridizing or smoking probes 
+
+```{R, eval = FALSE}
+### call in all cross hybridizing probes
+eh = ExperimentHub()
+query(eh, "DMRcate")
+crosshyb <- eh[["EH3129"]]
+
+### Get significant smoking probes
+smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
+
+if(!file.exists(basename(smoking.file))) downloader::download(smoking.file,basename(smoking.file))
+
+smoking <- readxl::read_xlsx(
+  basename(smoking.file),
+  sheet = "02",
+  skip = 2
+)
+smoking.sig.probes <- smoking %>% dplyr::filter(`P-value` < 1*10^(-7)) %>% pull("Probe ID") 
+length(smoking.sig.probes)
+
+### Call in meta analysis final results
+meta_all <- read.csv(
+  paste0(dir.result, "meta_analysis_matched_sig_df.csv")
+) #dim: 102 41
+
+### Find files with regions and probes
+files <- dir(pattern = paste0(".*_residuals_cometh_input_ls.rds"),
+             recursive = T,
+             full.names = TRUE,
+             ignore.case = T)
+files <- grep("GASPARONI|LONDON_PFC|MtSinai|ROSMAP",files,value = TRUE,ignore.case = TRUE)
+
+### Read files and Limit the cohort_ls to cohort_coMethRegion in meta_all 
+cometh.probes.list <- lapply(files, function (f){
+  print(f)
+  all.clusters <- readRDS(f)$coMeth_ls # Read files
+  cohort <- f %>% dirname %>% dirname %>% basename # get cohort from folder name
+  
+  col <- grep(paste0(cohort,"_coMethRegion"),
+              colnames(meta_all),
+              ignore.case = TRUE,
+              value = TRUE) # get column with cohort sig regions
+  
+  # keep sig regions only
+  all.clusters[names(all.clusters) %in% meta_all[[col]]]
+})
+names(cometh.probes.list) <-  files %>% dirname %>% dirname %>% basename
+
+lapply(cometh.probes.list,length)
+
+### Map probes in each region to smoking and crosshybrdizing
+extractCrosHybridization <- function(probes.list){
+  crosshyb.extracted <- plyr::laply(probes.list,function(probes){
+    paste(intersect(probes, crosshyb), 
+          collapse = ", "
+    )
+  })
+  smoking.extracted <- plyr::laply(probes.list,function(probes){
+    paste(intersect(probes, smoking.sig.probes), 
+          collapse = ", "
+    )
+  })
+  tibble::tibble(
+    "coMethRegion" = names(probes.list),
+    "crossHyb" = crosshyb.extracted, 
+    "crossHyb_bi" = ifelse(crosshyb.extracted == "",0,1),
+    "smoke" = smoking.extracted,
+    "smoke_bi" = ifelse(smoking.extracted == "",0,1)
+  )
+}
+
+Gasparoni_crossHyb_df <- extractCrosHybridization(cometh.probes.list$GASPARONI)
+colnames(Gasparoni_crossHyb_df) <- paste0("GASPARONI_",colnames(Gasparoni_crossHyb_df))
+plyr::count(Gasparoni_crossHyb_df, vars = grep("_bi",colnames(Gasparoni_crossHyb_df),value = TRUE))
+
+London_PFC_crossHyb_df <- extractCrosHybridization(cometh.probes.list$LONDON)
+colnames(London_PFC_crossHyb_df) <- paste0("London_",colnames(London_PFC_crossHyb_df))
+plyr::count(London_PFC_crossHyb_df, vars = grep("_bi",colnames(London_PFC_crossHyb_df),value = TRUE))
+
+MtSinai_crossHyb_df <- extractCrosHybridization(cometh.probes.list$MtSinai)
+colnames(MtSinai_crossHyb_df) <- paste0("MtSinai_",colnames(MtSinai_crossHyb_df))
+plyr::count(MtSinai_crossHyb_df, vars = grep("_bi",colnames(MtSinai_crossHyb_df),value = TRUE))
+
+ROSMAP_crossHyb_df <- extractCrosHybridization(cometh.probes.list$ROSMAP)
+colnames(ROSMAP_crossHyb_df) <- paste0("ROSMAP_",colnames(ROSMAP_crossHyb_df))
+plyr::count(ROSMAP_crossHyb_df, vars = grep("_bi",colnames(ROSMAP_crossHyb_df),value = TRUE))
+
+### Merge smoking and crossHyb probes  information with meta analysis results 
+meta_all_final <- meta_all %>% left_join(Gasparoni_crossHyb_df)  %>% 
+  left_join(London_PFC_crossHyb_df) %>% 
+  left_join(MtSinai_crossHyb_df) %>% 
+  left_join(ROSMAP_crossHyb_df)
+
+### Add information with input regions with any cross hybridization in cohorts 
+meta_all_final$crossHyb_bi <- rowSums(meta_all_final[,grep("crossHyb_bi",colnames(meta_all_final))],na.rm = TRUE) > 0
+meta_all_final$smoke_bi <- rowSums(meta_all_final[,grep("smoke_bi",colnames(meta_all_final))],na.rm = TRUE) > 0
+
+# Sort by region meta analysis FDR
+# Cluster columns of the projects together
+meta_all_final <- meta_all_final[
+  order(meta_all_final$fdr),
+  c(
+    grep("Gasparoni|MtSinai|London|ROSMAP",colnames(meta_all_final),ignore.case = TRUE,invert = TRUE),
+    grep("Gasparoni",colnames(meta_all_final),ignore.case = TRUE),
+    grep("MtSinai",colnames(meta_all_final),ignore.case = TRUE),
+    grep("London",colnames(meta_all_final),ignore.case = TRUE),
+    grep("ROSMAP",colnames(meta_all_final),ignore.case = TRUE)
+  )
+  ]
+str(meta_all_final)
+
+meta_sig_final <- meta_all_final[
+  meta_all_final$crossHyb_bi == 0 &
+    meta_all_final$smoke_bi == 0,
+  ] #dim: 83 59
+
+### Save
+write.csv(
+  meta_sig_final %>% as.data.frame,
+  paste0(dir.result, "meta_analysis_matched_sig_no_crossHyb_smoking_df.csv"),
+  row.names = FALSE
+)
+```
+
+## Compare with sig DMRs from main analysis
+
+```{R, eval = FALSE}
+### Call in datasets
+main_dmrs <- read.csv(
+  paste0(dir.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
+) #dim: 119 60
+
+matched_dmrs <- read.csv(
+  paste0(dir.result, "meta_analysis_matched_sig_no_crossHyb_smoking_df.csv")
+) #dim: 83 59
+
+### Turn input regions into granges
+library(dplyr)
+library(GenomicRanges)
+main_dmrs_gr <- main_dmrs %>%
+  tidyr::separate("inputRegion",c("chrom","start","end")) %>%
+  makeGRangesFromDataFrame() %>%
+  unique
+
+matched_dmrs_gr <- matched_dmrs %>%
+  tidyr::separate("inputRegion", c("chrom", "start", "end")) %>%
+  makeGRangesFromDataFrame() %>%
+  unique
+
+### Create Venn Diagram
+library(ChIPpeakAnno)
+library(ggplot2)
+
+methods      <- c("main analysis", "matched analysis")
+methodsLabel <- c("main analysis sig DMRs", "matched analysis sig DMRs")
+
+
+n <- length(methods)
+
+gg_color_hue <- function(n){
+  hues = seq(15, 375, length = n + 1)
+  hcl(h = hues, l = 65, c = 100)[1:n]
+}
+
+cols = gg_color_hue(n)
+
+ranges.list <- list(main_dmrs_gr, matched_dmrs_gr)
+
+pdf(
+  file = paste0(dir.result,"venn_main_matched_sig_DMRs.pdf"),
+  width = 5, height = 5
+)
+makeVennDiagram(
+  ranges.list,
+  NameOfPeaks = methodsLabel[1:n],
+  totalTest = 37159, 
+  by = "region",
+  main = paste0(" "),
+  col = c("#440154ff", '#21908dff'),
+  fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
+  cex = 1,
+  fontfamily = "sans",
+  cat.cex = 1,
+  cat.default.pos = "outer",
+  cat.pos = c(180, 180),
+  cat.dist = c(-0.055, -0.055),
+  cat.fontfamily = "sans",
+  cat.col = c("#440154ff", '#21908dff'))
+dev.off()
+```
+
+
+# Meta-analysis Single CpGs
+
+1. merge cohorts
+2. meta analysis
+3. add annotation
+4. Delete cross-hybridizing and smoking probes from sig probes
+5. Compare with sig CpGs from main analysis  
+
+## Import datasets  
+
+```{R, eval = FALSE}
+library(dplyr)
+library(tidyr)
+
+results.files <- dir("matched_analysis_results/",
+                     pattern = "single_cpg_linear_df.csv",
+                     recursive = TRUE,
+                     full.names = TRUE,
+                     ignore.case = TRUE)
+
+for(i in results.files){
+  data <- readr::read_csv(i)
+  dataset <- unlist(stringr::str_split(basename(i),"\\/|\\_"))[1]  %>% as.character()
+  aux <- paste0(dataset,c("_estimate", "_se", "_pValue"))
+  colnames(data) <- c("cpg", aux)
+  assign(dataset,data)
+}
+```
+
+## Merge cohorts
+
+```{R, eval = FALSE}
+cohort_ls <- list(
+  Gasparoni = Gasparoni,
+  London_PFC = London,
+  MtSinai = MtSinai,
+  ROSMAP = ROSMAP
+)
+
+### outer join input region
+multi_cohorts <- Reduce(
+  function(x,y, ...) merge(x, y, by = "cpg", all = TRUE, ...),
+  cohort_ls
+) #dim: 450793 13
+dim(multi_cohorts)
+```
+
+## Meta analysis  
+
+```{R, eval = FALSE}
+### calculate meta analysis z scores and p values
+library(meta)
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+meta_df <- plyr::adply(.data = multi_cohorts, 
+                       .margins = 1, 
+                       .fun =  function(rowOne_df){
+                         
+                         est <- rowOne_df[grep("estimate",colnames(rowOne_df))] %>% as.numeric
+                         
+                         direction <-  paste(ifelse(
+                           is.na(est), ".",
+                           ifelse(est > 0, "+", "-")
+                         ),collapse = "")
+                         
+                         se <- rowOne_df[grep("se",colnames(rowOne_df))] %>% as.numeric
+                         cohort <- gsub("_se","",grep("se",colnames(rowOne_df),value = T))
+                         rowOne_reform_df <- data.frame(
+                           cohort = cohort,
+                           est = est,
+                           se = se,
+                           stringsAsFactors = FALSE
+                         )
+                         
+                         f <- metagen(
+                           TE = est,
+                           seTE = se,
+                           data = rowOne_reform_df
+                         )
+                         
+                         tibble::tibble(
+                           cpg = rowOne_df$cpg,
+                           estimate = f$TE.fixed,
+                           se = f$seTE.fixed,
+                           pVal.fixed = f$pval.fixed,
+                           pVal.random = f$pval.random,
+                           pValQ = f$pval.Q,
+                           direction = direction
+                         )
+                       }  , .progress = "time",
+                       .parallel = TRUE,
+                       .id = NULL
+)
+
+### create final pVal
+meta_df$pVal.final <- ifelse(
+  meta_df$pValQ > 0.05, meta_df$pVal.fixed, meta_df$pVal.random
+)
+
+### calculate fdr
+meta_df$fdr <- p.adjust(meta_df$pVal.final, method = "fdr")
+
+### order meta_df
+meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
+                             grep("_",colnames(meta_df),invert = F))]
+meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final),]
+```
+
+## Add annotation  
+
+```{R, eval = FALSE}
+library(sesame)
+probes.info <- sesameDataGet("HM450.hg19.manifest")
+probes.info <- probes.info[meta_final_ordered_df$cpg %>% as.character()] %>% as.data.frame %>% dplyr::select(c("seqnames","start","end"))
+
+result_annot_df <- merge(
+  y = meta_final_ordered_df,
+  x = probes.info,
+  by.y = "cpg",
+  by.x = "row.names",
+  all.y = TRUE,
+  sort = FALSE
+)
+
+### final raw data
+write.csv(
+  result_annot_df  %>% as.data.frame(),
+  paste0(dir.result, "meta_analysis_matched_single_cpg_df.csv"),
+  row.names = FALSE
+)
+
+### prepare data for comb-p
+result_for_combp_df <- result_annot_df[
+  , c("seqnames", "start", "end", "pVal.final")
+  ]
+colnames(result_for_combp_df)[c(1,4)] <- c("chr", "pValue")
+result_for_combp_df$chr <- as.character(result_for_combp_df$chr)
+
+write.csv(
+  result_for_combp_df,
+  paste0(dir.result, "meta_analysis_matched_single_cpg_df_for_combp.csv"),
+  row.names = FALSE
+)
+```
+
+## Delete cross-hybridizing and smoking probes from sig probes 
+
+```{R, eval = FALSE}
+### Exclude non-significant probes
+result_annot_sig_df <- result_annot_df %>% filter(fdr < 0.05) 
+
+write.csv(
+  result_annot_sig_df %>% as.data.frame(),
+  paste0(dir.result, "meta_analysis_matched_single_cpg_sig_df.csv"),
+  row.names = FALSE
+)
+
+### Get crosshybrdizing probes
+library(ExperimentHub)
+
+eh = ExperimentHub()
+query(eh, "DMRcate")
+crosshyb <- eh[["EH3129"]]
+
+
+### Get significant smoking probes
+smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
+
+if(!file.exists(basename(smoking.file))) downloader::download(smoking.file,basename(smoking.file))
+
+smoking <- readxl::read_xlsx(
+  basename(smoking.file),
+  sheet = "02",
+  skip = 2
+)
+smoking.sig.probes <- smoking %>% dplyr::filter(`P-value` < 1*10^(-7)) %>% pull("Probe ID")
+
+
+### Exclude cross-hybridizing and smoking probes
+result_annot_sig_df$Row.names <- as.character(result_annot_sig_df$Row.names)
+
+result_annot_sig_no_crossHyb_smoking_df <- result_annot_sig_df[
+  !((result_annot_sig_df$Row.names %in% crosshyb) |
+      (result_annot_sig_df$Row.names %in% smoking.sig.probes)),
+  ] #dim: 642 24
+
+### Add annotation
+library(coMethDMR)
+result_annot_sig_no_crossHyb_smoking_df$chrom <- as.character(
+  result_annot_sig_no_crossHyb_smoking_df$seqnames
+)
+result_final <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df)
+
+result_final_ordered <- result_final[
+  ,c(1:4, 26:29, 5:24)
+  ]
+
+write.csv(
+  result_final_ordered %>% as.data.frame(),
+  paste0(dir.result, "meta_analysis_matched_single_cpg_sig_no_crossHyb_smoking_df.csv"),
+  row.names = FALSE
+)           
+```
+
+## Compare with sig CpGs from main analysis
+
+```{R, eval = FALSE}
+### Call in datasets
+main_cpgs <- read.csv(
+  paste0(dir.single.cpg, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
+) #dim: 3751 28
+main_cpgs <- main_cpgs %>% pull(cpg) %>% as.character
+
+matched_cpgs <- read.csv(
+  paste0(dir.result, "meta_analysis_matched_single_cpg_sig_no_crossHyb_smoking_df.csv")
+) #dim: 642 24
+matched_cpgs <- matched_cpgs %>% pull(1) %>% as.character
+
+
+### Create Venn Diagram
+library(VennDiagram)
+library(ggplot2)
+
+# Make the plot
+venn <- venn.diagram(
+  x = list(
+    main_cpgs %>% unique ,
+    matched_cpgs %>% unique
+  ), 
+  category.names = c("Main analysis sig. probes" , "Matched analysis sig. probes" ),
+  filename = file.path(dir.result, '/venn_main_matched_sig_cpgs.png'),
+  output = TRUE ,
+  imagetype = "png" ,
+  height = 700 ,
+  width = 700 ,
+  resolution = 300,
+  compression = "lzw",
+  lwd = 1,
+  col = c("#440154ff", '#21908dff'),
+  fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
+  cex = 0.5,
+  cat.cex = 0.3,
+  cat.default.pos = "outer",
+  cat.pos = c(0, 0),
+  cat.dist = c(0.01, 0.01)
+)
+```
+
+
+
+
+# Session information
+```{R}
+devtools::session_info()
+```
+
