@@ -21,10 +21,10 @@ Authors:
 
 Each of the files has the following structure:
 
-1. Data retrival
+1. Data retrieval 
 2. Data Pre-processing
-2.1. Probes QC
-2.2. Samples QC
+    1. Probes QC
+    2. Samples QC
 3. Outliers detection - PCA analysis
 4. Summary after QC steps
 5. Compute neuron proportion
