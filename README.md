@@ -52,13 +52,13 @@ Each of the files has the following structure:
 #### Files
 | File                 | Dataset | HTML |
 |----------------------|-------------|-------------| 
-| Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
-| London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/yd74s21mssbo0xq/London.html?dl=0)|
-| London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
-| MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/tnc12y3myfrx53w/MtSinai.html?dl=0)|
-| ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/8am2p72xlbn0kja/ROSMAP.html?dl=0)|
-| SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)| [Link to compiled report](https://www.dropbox.com/s/mzrb6vc0c7dmti1/SanchexMut.html?dl=0)|
-| Semick.Rmd           |   Semick (Semick et al. 2019)   | [Link to compiled report](https://www.dropbox.com/s/ubnede70grp5e9e/Semick.html?dl=0)|
+| single_cohort_analysis/Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://www.dropbox.com/s/bgfioq8fo18zyeg/Gasparoni.html?dl=0)|
+| single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/yd74s21mssbo0xq/London.html?dl=0)|
+| single_cohort_analysis/London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
+| single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/tnc12y3myfrx53w/MtSinai.html?dl=0)|
+| single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/8am2p72xlbn0kja/ROSMAP.html?dl=0)|
+| single_cohort_analysis/SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)| [Link to compiled report](https://www.dropbox.com/s/mzrb6vc0c7dmti1/SanchexMut.html?dl=0)|
+| single_cohort_analysis/Semick.Rmd           |   Semick (Semick et al. 2019)   | [Link to compiled report](https://www.dropbox.com/s/ubnede70grp5e9e/Semick.html?dl=0)|
 
 ### Meta-analysis 
 
@@ -92,7 +92,7 @@ Co-methylated DMRs with FDR less than 5% were considered to be significant.
 #### Files
 | File                 | HTML |
 |----------------------|----------------------|
-| Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/nsnlidmm58tb8k5/Meta-analysis.html?dl=0)|
+| meta_analysis/Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/nsnlidmm58tb8k5/Meta-analysis.html?dl=0)|
 
 ### Matched Meta-analysis
 
@@ -106,12 +106,13 @@ The matched samples were analyzed in the same way as described above, except by 
 
 | File                 | HTML |
 |----------------------|----------------------|
-| Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/1q3srp6g40r9817/Matched-analysis.html?dl=0)|
+| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/1q3srp6g40r9817/Matched-analysis.html?dl=0)|
 
 ### Correlation of methylation changes in brain and blood samples
 
 
 #### Description
+
 Using the London cohort which consisted of 69 samples with matched PFC and blood samples, 
 we compared brain-blood methylation levels in significant CpGs and those CpGs mapped within significant DMRs using Spearman correlations. 
 Two approaches were used to quantify methylation levels: using beta values, 
@@ -122,7 +123,7 @@ Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects.
 #### Files
 | File                 |    HTML                  | 
 |----------------------|----------------------|
-| London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/kswu3xa7lzk4g61/London_blood_brain_correlation.html?dl=0)|
+| cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/kswu3xa7lzk4g61/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
 
@@ -163,4 +164,23 @@ long with log link and gamma distribution for the outcome variable.
 #### Files
 | File                 |                      | 
 |----------------------|----------------------|
-| DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/wo7rn5177g3lgkn/code.html?dl=0)|
+| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/wo7rn5177g3lgkn/code.html?dl=0)|
+
+
+### Enrichment analysis of significant DNA methylation changes 
+
+#### Description
+
+Meta-analysis results were slipt into two groups, the ones with positive estimate (hypermethylation compared to control), and the ones with negative estimae (hypomethylation compared to control). 
+For each group, we performed an enrichment analysis (fisher test) comparing the significant regions/cpgs (foreground) to all the cpgs/regions used in the single analysis evaluation (background).
+The main regions/probe annotation used were: 
+
+- Relation_to_Island: `IlluminaHumanMethylation450kanno.ilmn12.hg19::Islands.UCSC`
+- UCSC_RefGene_Group_hierarchy: `IlluminaHumanMethylation450kanno.ilmn12.hg19::Other`
+- ChmmModels: `https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed`
+
+#### Files
+| File                 |                      | 
+|----------------------|----------------------|
+| enrichment_analysis/enrichment-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/ydj54z29h85cec0/enrichment-analysis.html?dl=0)|
+
