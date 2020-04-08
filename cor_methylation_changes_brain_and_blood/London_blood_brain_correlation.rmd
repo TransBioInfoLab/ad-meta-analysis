@@ -1,0 +1,620 @@
+---
+title: "LONDON blood dataset"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    highlight: zenburn
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: false
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,warning = FALSE)
+```
+
+```{R, message = FALSE, results = 'hide'}
+library(dplyr)
+```
+
+# Data retrieval
+
+```{R}
+data.brain.beta <- "../DATASETS/LONDON/step5_pca_filtering/"
+data.brain.pheno <- "../DATASETS/LONDON/step6_neuron_comp/"
+data.blood.beta <- "../DATASETS/LONDON_blood/step5_pca_filtering/"
+data.blood.pheno <- "../DATASETS/LONDON_blood/step6_neuron_comp/"
+data.dmr <- "../meta_analysis_region_results/step4_dmr_vs_cpgs/"
+data.cpg <- "../meta_analysis_single_cpg_results/"
+data.final <- "../London_blood_brain_correlation_results/"
+data.final.beta <- "../London_blood_brain_correlation_results/using_betas/"
+data.final.resid <- "../London_blood_brain_correlation_results/using_residuals/"
+data.BECon <- "../DATASETS/LONDON_blood/step10_blood_brain_correlation/"
+```
+
+```{R}
+brain_beta <- readRDS(
+    paste0(data.brain.beta, "London_PFC_QNBMIQ_PCfiltered_withStageExclude.RDS")
+)
+brain_pheno <- readRDS(
+    paste0(data.brain.pheno, "pheno107_PFC_withNeuronProp_withStageExclude_df.RDS")
+)
+blood_beta <- readRDS(
+    paste0(data.blood.beta, "London_QNBMIQ_PCfiltered_withStatusExclude.RDS")
+)
+blood_pheno <- readRDS(
+    paste0(data.blood.pheno, "pheno_BLOOD_withBloodProp_withStatusExclude_df.RDS")
+)
+```
+
+# Limit samples in both datasets
+
+```{R}
+### Renames variables
+colnames(brain_pheno)[c(1, 3:ncol(brain_pheno))] <- paste0(
+    "brain_", colnames(brain_pheno)[c(1, 3:ncol(brain_pheno))]
+)
+colnames(blood_pheno)[c(1, 3:ncol(blood_pheno))] <- paste0(
+    "blood_", colnames(blood_pheno)[c(1, 3:ncol(blood_pheno))]
+)
+
+### Merge datasets
+pheno_final <- merge(
+   brain_pheno, blood_pheno,
+   by = "subject.id"
+) #dim: 69 23
+
+### Limit beta matrices to samples in pheno_final
+brain_beta_final <- brain_beta[, pheno_final$brain_sample]
+blood_beta_final <- blood_beta[, pheno_final$blood_sample]
+```
+
+# Calculate blood and brain correlation (without taking residuals)
+
+```{R}
+### Call in datasets with sig DMRs and CpGs
+main_dmrs <- read.csv(
+    paste0(data.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
+)
+main_cpgs <- read.csv(
+    paste0(data.cpg, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
+)
+```
+
+## for sig. regions
+
+```{R}
+### Get probes from regions
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+    arrayType = "450k",
+    clusterType = "regions"
+)
+
+idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% main_dmrs$inputRegion
+main_dmrs_cpgs <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
+
+### Limit blood_beta and brain_beta to the probes above
+brain_beta_regions <- brain_beta_final[
+    row.names(brain_beta_final) %in% main_dmrs_cpgs,
+]
+
+blood_beta_regions <- blood_beta_final[
+    row.names(blood_beta_final) %in% main_dmrs_cpgs,
+]
+
+identical(dim(brain_beta_regions), dim(blood_beta_regions))
+identical(row.names(brain_beta_regions), row.names(blood_beta_regions))
+
+blood_brain_cor <- plyr::adply(seq_len(nrow(brain_beta_regions)),
+                               .margins = 1,
+                               .fun =  function(row){
+    
+    spearman_cor <- cor.test(
+        brain_beta_regions[row,],
+        blood_beta_regions[row,],
+        method = "spearman"
+    )
+    
+    data.frame(
+        cpg = row.names(brain_beta_regions)[row],
+        spearman_cor = spearman_cor$estimate,
+        pVal = spearman_cor$p.value,
+        stringsAsFactors = FALSE
+    )
+},.id = NULL)
+
+blood_brain_cor$fdr <- p.adjust(blood_brain_cor$pVal, method = "fdr")
+blood_brain_cor
+```
+
+```{R, eval = FALSE}
+write.csv(
+    blood_brain_cor,
+    paste0(data.final.beta, "London_blood_brain_beta_correlation_dmrs.csv"),
+    row.names = FALSE
+)
+```
+
+## for sig. cpgs
+
+```{R}
+### Limit blood_beta and brain_beta to probes in main_cpgs
+brain_beta_cpgs <- brain_beta_final[
+    row.names(brain_beta_final) %in% as.character(main_cpgs$cpg),
+]
+
+blood_beta_cpgs <- blood_beta_final[
+    row.names(blood_beta_final) %in% as.character(main_cpgs$cpg),
+]
+
+identical(dim(brain_beta_cpgs), dim(blood_beta_cpgs))
+identical(row.names(brain_beta_cpgs), row.names(blood_beta_cpgs))
+
+blood_brain_cor <-  plyr::adply(seq_len(nrow(brain_beta_cpgs)),
+                                .margins = 1,
+                                .fun =  function(row){
+    spearman_cor <- cor.test(
+        brain_beta_cpgs[row,],
+        blood_beta_cpgs[row,],
+        method = "spearman"
+    )
+    
+    data.frame(
+        cpg = row.names(brain_beta_cpgs)[row],
+        spearman_cor = spearman_cor$estimate,
+        pVal = spearman_cor$p.value,
+        stringsAsFactors = FALSE
+    )
+},.id = NULL)
+
+blood_brain_cor$fdr <- p.adjust(blood_brain_cor$pVal, method = "fdr")
+blood_brain_cor
+```
+
+```{R, eval = FALSE}
+write.csv(
+    blood_brain_cor,
+    paste0(data.final.beta, "London_blood_brain_beta_correlation_cpgs.csv"),
+    row.names = FALSE
+)
+```
+
+# Calculate blood and brain correlation (with taking residuals)
+
+## Take residuals
+
+### for brain beta matrix
+
+```{R}
+### Compute M values
+mvalue_mat <- log2( brain_beta_final /(1 - brain_beta_final))
+
+### Reorder samples based on pheno_df
+mvalue_mat <- mvalue_mat[, pheno_final$brain_sample]
+
+identical(colnames(mvalue_mat), pheno_final$brain_sample)
+
+### Take residuals
+lmF <- function(mval){
+  fitE <- lm(
+    as.numeric(mval) ~ brain_age.brain + brain_sex + brain_prop.neuron + as.character(brain_slide), #add batch if rosmap
+    data = pheno_final,
+    na.action = na.exclude
+  )
+  residuals (fitE)
+}
+
+library(doParallel)
+registerDoParallel(detectCores()/2)
+resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = TRUE)
+rownames(resid) <- resid[,1]
+resid[,1] <- NULL
+colnames(resid) <- colnames(mvalue_mat)
+```
+
+```{R, eval = FALSE}
+saveRDS(
+  resid,
+  paste0(data.final.resid, "London_PFC_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+)
+```
+
+### for blood beta matrix
+
+```{R}
+### Compute M values
+mvalue_mat <- log2(blood_beta_final / (1 - blood_beta_final))
+
+### Reorder samples based on pheno_df
+mvalue_mat <- mvalue_mat[, pheno_final$blood_sample]
+
+identical(colnames(mvalue_mat),  pheno_final$blood_sample)
+
+lmF <- function(mval){
+  fitE <- lm(
+    as.numeric(mval) ~ blood_age.blood + blood_sex + blood_slide +
+      blood_B + blood_NK + blood_CD4T + blood_CD8T + blood_Mono + blood_Neutro + blood_Eosino,
+    data = pheno_final,
+    na.action = na.exclude
+  )
+  residuals (fitE)
+}
+
+resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = TRUE)
+rownames(resid) <- resid[,1]
+resid[,1] <- NULL
+colnames(resid) <- colnames(mvalue_mat)
+```
+
+```{R, eval = FALSE}
+saveRDS(
+  resid,
+  paste0(data.final.resid, "LONDON_blood_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+)
+```
+
+## Call in datasets
+
+```{R}
+### Call in brain and blood residual matrices
+brain_beta_final <- as.matrix(
+    readRDS(
+        paste0(data.final.resid, "London_PFC_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+    )
+)
+blood_beta_final <- as.matrix(
+    readRDS(
+        paste0(data.final.resid, "LONDON_blood_QNBMIQ_PCfiltered_mvalResiduals.RDS")
+    )
+)
+
+### Call in datasets with sig DMRs and CpGs
+main_dmrs <- read.csv(
+    paste0(data.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
+)
+main_cpgs <- read.csv(
+    paste0(data.cpg, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
+)
+```
+
+## for sig. regions
+
+```{R}
+### Get probes from regions
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+    arrayType = "450k",
+    clusterType = "regions"
+)
+
+idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% main_dmrs$inputRegion
+main_dmrs_cpgs <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
+
+### Limit blood_beta and brain_beta to the probes above
+brain_beta_regions <- brain_beta_final[
+    row.names(brain_beta_final) %in% main_dmrs_cpgs,
+]
+
+blood_beta_regions <- blood_beta_final[
+    row.names(blood_beta_final) %in% main_dmrs_cpgs,
+]
+
+identical(dim(brain_beta_regions), dim(blood_beta_regions))
+identical(row.names(brain_beta_regions), row.names(blood_beta_regions))
+
+blood_brain_cor <- lapply(seq_len(nrow(brain_beta_regions)), function(row){
+    spearman_cor <- cor.test(
+        brain_beta_regions[row,],
+        blood_beta_regions[row,],
+        method = "spearman"
+    )
+    
+    data.frame(
+        cpg = row.names(brain_beta_regions)[row],
+        spearman_cor = spearman_cor$estimate,
+        pVal = spearman_cor$p.value,
+        stringsAsFactors = FALSE
+    )
+})
+
+blood_brain_cor <- do.call(rbind, blood_brain_cor)
+
+blood_brain_cor$fdr <- p.adjust(blood_brain_cor$pVal, method = "fdr")
+```
+
+```{R, eval = FALSE}
+write.csv(
+    blood_brain_cor,
+    paste0(data.final.resid, "London_blood_brain_residuals_correlation_dmrs.csv"),
+    row.names = FALSE
+)
+```
+
+## for sig. cpgs
+
+```{R}
+### Call in datasets
+
+
+### Limit blood_beta and brain_beta to probes in main_cpgs
+brain_beta_cpgs <- brain_beta_final[
+    row.names(brain_beta_final) %in% as.character(main_cpgs$cpg),
+]
+
+blood_beta_cpgs <- blood_beta_final[
+    row.names(blood_beta_final) %in% as.character(main_cpgs$cpg),
+]
+
+identical(dim(brain_beta_cpgs), dim(blood_beta_cpgs))
+identical(row.names(brain_beta_cpgs), row.names(blood_beta_cpgs))
+
+blood_brain_cor <- lapply(seq_len(nrow(brain_beta_cpgs)), function(row){
+    spearman_cor <- cor.test(
+        brain_beta_cpgs[row,],
+        blood_beta_cpgs[row,],
+        method = "spearman"
+    )
+    
+    data.frame(
+        cpg = row.names(brain_beta_cpgs)[row],
+        spearman_cor = spearman_cor$estimate,
+        pVal = spearman_cor$p.value,
+        stringsAsFactors = FALSE
+    )
+})
+
+blood_brain_cor <- do.call(rbind, blood_brain_cor)
+blood_brain_cor$fdr <- p.adjust(blood_brain_cor$pVal, method = "fdr")
+```
+
+```{R, eval = FALSE}
+write.csv(
+    blood_brain_cor,
+    paste0(data.final.resid, "London_blood_brain_residuals_correlation_cpgs.csv"),
+    row.names = FALSE
+)
+```
+
+# Merge final results
+
+```{R}
+### Call in datasets
+dmr_beta <- read.csv(
+    paste0(data.final.beta, "London_blood_brain_beta_correlation_dmrs.csv")
+)
+dmr_resid <- read.csv(
+    paste0(data.final.resid, "London_blood_brain_residuals_correlation_dmrs.csv")
+)
+cpg_beta <- read.csv(
+    paste0(data.final.beta, "London_blood_brain_beta_correlation_cpgs.csv")
+)
+cpg_resid <- read.csv(
+    paste0(data.final.resid, "London_blood_brain_residuals_correlation_cpgs.csv")
+)
+
+### Rename variables
+colnames(dmr_beta)[2:4] <- paste0("beta_", colnames(dmr_beta)[2:4])
+colnames(dmr_resid)[2:4] <- paste0("residual_", colnames(dmr_resid)[2:4])
+colnames(cpg_beta)[2:4] <- paste0("beta_", colnames(cpg_beta)[2:4])
+colnames(cpg_resid)[2:4] <- paste0("residual_", colnames(cpg_resid)[2:4])
+
+### Merge datasets
+dmr_cor <- merge(
+    dmr_beta, dmr_resid,
+    by = "cpg"
+)
+
+cpg_cor <- merge(
+    cpg_beta, cpg_resid,
+    by = "cpg"
+)
+```
+
+# Merge results with results from BECon
+
+```{R}
+### Call in BECon results
+becon_dmrs <- read.csv(
+    paste0(data.BECon, "BECon_main_dmrs_blood_brain_correlation.csv")
+)
+
+becon_cpgs <- read.csv(
+    paste0(data.BECon, "BECon_main_cpgs_blood_brain_correlation.csv")
+)
+
+### Select and rename variables
+becon_dmrs <- becon_dmrs[
+    ,c("CpG.ID", "Cor.Blood.BA7", "Cor.Blood..BA10", "Cor.Blood..BA20", "Mean.Cor.All.Brain")
+]
+colnames(becon_dmrs) <- c(
+    "cpg", "BECon_cor_BA7", "BECon_cor_BA10", "BECon_cor_BA20", "BECon_cor_mean"
+)
+
+becon_cpgs <- becon_cpgs[
+    ,c("CpG.ID", "Cor.Blood.BA7", "Cor.Blood..BA10", "Cor.Blood..BA20", "Mean.Cor.All.Brain")
+]
+colnames(becon_cpgs) <- c(
+    "cpg", "BECon_cor_BA7", "BECon_cor_BA10", "BECon_cor_BA20", "BECon_cor_mean"
+)
+
+### Merge BECon results with our results
+dmr_final <- merge(
+    dmr_cor, becon_dmrs,
+    by = "cpg",
+    all.x = TRUE
+)
+
+cpg_final <- merge(
+    cpg_cor, becon_cpgs,
+    by = "cpg",
+    all.x = TRUE
+)
+```
+
+```{R, eval = FALSE}
+### Save datasets
+write.csv(
+    dmr_final,
+    paste0(data.final, "London_blood_brain_correlation_dmrs.csv"),
+    row.names = FALSE
+)
+
+write.csv(
+    cpg_final,
+    paste0(data.final, "London_blood_brain_correlation_cpgs.csv"),
+    row.names = FALSE
+)
+```
+
+# Find overlaps with Hannon's paper
+
+## with supp table  
+
+```{R, eval = FALSE}
+library(readxl)
+library(coMethDMR)
+```
+
+### DMRs
+
+```{R, eval = FALSE}
+### Call in datasets
+main_dmrs <- read.csv(
+    "../meta_analysis_region_results/step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"
+)
+
+supp7 <- read_xlsx(
+  paste0(data.BECon, "Hannon_Epigenetics_2015_Copy of SupplementaryTables.xlsx"),
+  sheet = "Supplementary Table 7",
+  skip = 1
+)
+
+supp7_cpg_char <- supp7$...1 #n=1813
+
+IntersectCpGs_ls <- lapply(seq_len(nrow(main_dmrs)), function(row){
+
+  regionName <- as.character(main_dmrs$inputRegion)[row]
+
+  cpgs_sig <- GetCpGsInRegion(regionName, arrayType = "450k")
+
+  cpgs_intersect <- intersect(cpgs_sig, supp7_cpg_char)
+
+  cpgs_intersect_char <- paste0(cpgs_intersect, collapse = "; ")
+
+  data.frame(
+    inputRegion = regionName,
+    nIntersectCpGs = length(cpgs_intersect),
+    IntersectCpGs = cpgs_intersect_char,
+    stringsAsFactors = FALSE
+  )
+
+})
+
+IntersectCpGs_df <- do.call(rbind, IntersectCpGs_ls)
+
+table(IntersectCpGs_df$nIntersectCpGs)
+#   0
+# 119
+
+### Conclusion: no overlaps
+
+```
+
+### CpGs
+
+```{R, eval = FALSE}
+### Call in datasets
+main_cpgs <- read.csv(
+    "../meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"
+)
+
+IntersectCpGs_ls <- lapply(seq_len(nrow(main_cpgs)), function(row){
+
+  cpgName <- as.character(main_cpgs$cpg)[row]
+
+  cpgs_intersect <- intersect(cpgName, supp7_cpg_char)
+
+  cpgs_intersect_char <- paste0(cpgs_intersect, collapse = "; ")
+
+  data.frame(
+    inputRegion = cpgName,
+    nIntersectCpGs = length(cpgs_intersect),
+    IntersectCpGs = cpgs_intersect_char,
+    stringsAsFactors = FALSE
+  )
+
+})
+
+IntersectCpGs_df <- do.call(rbind, IntersectCpGs_ls)
+
+table(IntersectCpGs_df$nIntersectCpGs)
+#    0
+# 3751
+
+### Conclusion: no overlaps
+
+```
+
+## with website(need to manually check each cpg)  
+
+# Result summary for dmr_final
+
+```{R}
+sum(
+    abs(dmr_final$residual_spearman_cor) >= 0.5
+)
+# [1] 14
+
+sum(
+    dmr_final$residual_spearman_cor >= 0.5
+)
+# [1] 14
+
+sum(
+    abs(dmr_final$residual_spearman_cor) >= 0.5 &
+        dmr_final$residual_fdr < 0.05
+)
+# [1] 14
+
+dmr_final[
+   abs(dmr_final$residual_spearman_cor) >= 0.5 &
+       dmr_final$residual_fdr < 0.05, 
+][, c("cpg", "BECon_cor_BA7", "BECon_cor_BA10", "BECon_cor_BA20", "BECon_cor_mean")]
+
+### Conclustion: all correlation > 0.5 are positive correlated, and all significant
+```
+
+# Result summary for cpg_final
+
+```{R}
+sum(
+    abs(cpg_final$residual_spearman_cor) >= 0.5
+)
+# [1] 45
+
+sum(
+    cpg_final$residual_spearman_cor >= 0.5
+)
+# [1] 45
+
+sum(
+    abs(cpg_final$residual_spearman_cor) >= 0.5 &
+        cpg_final$residual_fdr < 0.05
+)
+# [1] 45
+
+cpg_final[
+   abs(cpg_final$residual_spearman_cor) >= 0.5 &
+       cpg_final$residual_fdr < 0.05, 
+][, c("cpg", "BECon_cor_BA7", "BECon_cor_BA10", "BECon_cor_BA20")]
+
+### Conclustion: all correlation > 0.5 are positive correlated, and all significant
+```
+
