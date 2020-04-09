@@ -92,7 +92,7 @@ Co-methylated DMRs with FDR less than 5% were considered to be significant.
 #### Files
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/nsnlidmm58tb8k5/Meta-analysis.html?dl=0)|
+| meta_analysis/Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/bxmhizaz11tyog7/Meta-analysis.html?dl=0)|
 
 ### Matched Meta-analysis
 
