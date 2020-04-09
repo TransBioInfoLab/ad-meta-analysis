@@ -582,7 +582,6 @@ idx <- list(
 )
 
 refProfile <- getReference(brain, idx)
-head(refProfile)
 
 
 ##### 2. Estimate proportions of neurons in PFC samples ########################
@@ -609,7 +608,6 @@ pheno_final <- merge(
 )
 
 saveRDS(pheno_final, paste0(data.dir.neuron, "pheno_withNeuronProp_df.RDS"))
-pheno_final %>% head
 ```
 
 # Linear regression by cpgs Methylation 
