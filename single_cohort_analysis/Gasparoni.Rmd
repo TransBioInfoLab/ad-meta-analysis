@@ -5,7 +5,7 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
+    highlight: null
     toc: true
     number_sections: true
     df_print: paged
@@ -88,8 +88,7 @@ plyr::a_ply(files,.margins = 1,.fun = function(url){
 
 Description: 
 
-- Read in idat files
-- Remove duplicated samples
+- Read in idat files and remove duplicated samples
 
 Input: 
 
@@ -114,7 +113,7 @@ save(RGSet,phenoData, file = paste0(data.dir.read, "Gasparoni.rda"))
 
 ## Bilsufite conversion filtering
 
-Filtering samples with bisulfiteConversion lower than 88.
+Removing samples with bisulfiteConversion lower than 88.
 
 ```{R qc_samples_packages, message = FALSE, results = "hide"}
 library(wateRmelon)
@@ -147,7 +146,7 @@ save(RGSet,
 load(file = paste0(data.dir.bsfilter, "/RGSet_bsfiltered.rda"))
 ```
 
-```{R}
+```{R, include = FALSE, eval=FALSE}
 ggpubr::gghistogram(bs$bisulfiteConversion,xlab = "bisulfite Conversion" )
 ```
 
@@ -190,11 +189,6 @@ save(RGSet,
 ```
 
 ## Probes QC
-
-1. subset to probes with detection $P <= 0.01$
-2. keep only probes that start with "cg"
-3. drop probes that are on X/Y
-4. drop probes where SNP with MAF $>= 0.01$ was present in the last 5 bp of the probe
 
 Input: 
 
@@ -262,9 +256,7 @@ save(
 
 # Normalization
 
-1. quantro test - decide if quantile normalization is needed
-2. quantile normalization - box plots before and after sample QC
-3. BMIQ - density plots before and after sampel QC
+- Quantile normalization and BMIQ normalization
 
 Input: 
 
@@ -278,8 +270,6 @@ Output:
 - bs.csv
 - pheno_df.RDS
 - QNBMIQ.RDS
-- boxplots before and after quantile normalization
-- denstity plots before and after quantile normalization and BMIQ
 
 ```{R qcSamplesData}
 load(paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.rda"))
@@ -292,7 +282,7 @@ library(quantro)
 library(doParallel)
 ```
 
-```{R, eval = FALSE}
+```{R, eval = FALSE, include = FALSE}
 ##### 1. Quantro test ##########################################################
 cl <- makeCluster(4)
 registerDoParallel(cl)
@@ -302,16 +292,16 @@ qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
 stopCluster(cl)
 ```
 
-```{R, include = FALSE,eval = FALSE}
+```{R, include = FALSE, eval = FALSE}
 # save(qtestPerm,file = file.path(data.dir,"qtestPerm.rda"))
 load(file.path(data.dir.pca,"qtestPerm.rda"))
 ```
 
-```{R,eval = FALSE}
+```{R,eval = FALSE, include = FALSE}
 qtestPerm
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 ##### 2. Plot before normalization and BMIQ ####################################
 ### Density plot
 matdensity(object = beta_mat,
@@ -349,7 +339,7 @@ dim(betaQN)
 ```
 
 #### Boxplot after normalization
-```{R}
+```{R, eval = FALSE, include = FALSE}
 matboxplot(betaQN,
            groupFactor =  pheno_df$stage %>%  as.factor(),
            xaxt = "n",
@@ -365,7 +355,7 @@ library(sesame)
 library(sesameData)
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 ### Order annotation in the same order as beta matrix
 annotType <- sesameDataGet("HM450.hg19.manifest")
 annotType$designTypeNumeric <- ifelse(annotType$designType == "I",1,2)
@@ -403,7 +393,7 @@ save(betaQN_BMIQ, pheno_df, file = paste0(data.dir.probes.normalization, "GASPAR
 load(paste0(data.dir.probes.normalization, "GASPARONI_QNBMIQ.rda"))
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 ##### 6. Density plot after normalization and BMIQ #############################
 matdensity(object = betaQN_BMIQ,
            groupFactor =  pheno_df$stage %>%  as.factor(),
@@ -420,9 +410,7 @@ legend('top',
 
 # Outliers detection - PCA analysis
 
-1. estimate standard deviation for each probe
-2. select most variable probes (e.g. n = 50,000)
-3. pca plot
+- Select most variable probes and perform PCA analysis
 
 Input: 
 
@@ -505,7 +493,7 @@ d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
 readr::write_csv(d, paste0(data.dir.pca, "GASPARONI_PCs_usingBetas.csv"))
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 ##### 2.PCA plot ###############################################################
 library(ggplot2)
 library(ggrepel)
@@ -552,7 +540,11 @@ bySex <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-##### 3.Filter samples by PCA, save files ######################################
+```
+
+
+```{R}
+##### 2.Filter samples by PCA, save files ######################################
 
 noOutliers <- d[which(d$outlier_PC1 == 0 & d$outlier_PC2 == 0), ]
 betaQN_BMIQ_PCfiltered <- betaQN_BMIQ[, rownames(noOutliers)] #dim: 433656 59
@@ -582,7 +574,7 @@ pheno_df %>%
                 caption = "Samples metadata")
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8)
 ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8,facet.by = "sex",fill = "sex")
 ggpubr::gghistogram(data = pheno_df, x = "age.brain",bins = 20)
@@ -657,14 +649,12 @@ head(refProfile)
 pfc <- readRDS(paste0(data.dir.pca, "Gasparoni_QNBMIQ_PCfiltered.RDS")) #dim: 433656 59
 
 selected <- rownames(pfc) %in% rownames(refProfile)
-table(selected)
 
-pfc.refcpgs <- pfc[selected, ] #dim: 9530 59
+pfc.refcpgs <- pfc[selected, ] 
 
 ### Estimate proportion of neurons
 prop <- data.frame(estProportion(pfc.refcpgs, profile = refProfile))
 colnames(prop) <- "prop.neuron"
-
 
 ##### 3. Merge pfc.refcpgs with phenotype file #################################
 pheno <- readRDS(paste0(data.dir.pca, "pheno_df.RDS"))

@@ -1,6 +1,6 @@
 ---
 title: "ROSMAP dataset"
-author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+author: "Lanyu Zhang, Tiago C. Silva, Lissette Gomez, Lily Wang"
 date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
