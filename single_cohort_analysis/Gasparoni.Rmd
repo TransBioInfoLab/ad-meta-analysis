@@ -118,8 +118,8 @@ Removing samples with bisulfiteConversion lower than 88.
 ```{R qc_samples_packages, message = FALSE, results = "hide"}
 library(wateRmelon)
 library(RPMM)
-library(sesame)
-library(sesameData)
+#library(sesame)
+#library(sesameData)
 ```
 
 
@@ -275,56 +275,6 @@ Output:
 load(paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.rda"))
 ```
 
-## Quantro
-
-```{R, message = FALSE, results = 'hide'}
-library(quantro)
-library(doParallel)
-```
-
-```{R, eval = FALSE, include = FALSE}
-##### 1. Quantro test ##########################################################
-cl <- makeCluster(4)
-registerDoParallel(cl)
-qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
-                     groupFactor = pheno_df$stage,
-                     B = 1000)
-stopCluster(cl)
-```
-
-```{R, include = FALSE, eval = FALSE}
-# save(qtestPerm,file = file.path(data.dir,"qtestPerm.rda"))
-load(file.path(data.dir.pca,"qtestPerm.rda"))
-```
-
-```{R,eval = FALSE, include = FALSE}
-qtestPerm
-```
-
-```{R, eval = FALSE, include = FALSE}
-##### 2. Plot before normalization and BMIQ ####################################
-### Density plot
-matdensity(object = beta_mat,
-           groupFactor = pheno_df$stage %>%  as.factor(),
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-legend('top',
-       paste0("stage ", levels(pheno_df$stage %>%  as.factor())),
-       col = c(1:7), lty = 1, lwd = 3)
-
-### Boxplot
-matboxplot(beta_mat,
-           groupFactor =  pheno_df$stage %>%  as.factor(),
-           xaxt = "n",
-           main = "Beta Values in Gasparoni cohort (autosomes) - before normalization")
-legend('bottom',
-       paste0("stage ",  levels(pheno_df$stage %>%  as.factor())),
-       col = c(1:7), 
-       lty = 1, 
-       lwd = 3, 
-       cex = 0.70)
-```
-
 
 ## Quantile normalization
 
@@ -336,14 +286,6 @@ library(lumi)
 ```{R}
 betaQN <- lumiN(x.lumi = beta_mat, method = "quantile")
 dim(betaQN)
-```
-
-#### Boxplot after normalization
-```{R, eval = FALSE, include = FALSE}
-matboxplot(betaQN,
-           groupFactor =  pheno_df$stage %>%  as.factor(),
-           xaxt = "n",
-           main = "Beta Values in Gasparoni cohort (autosomes) - after normalization")
 ```
 
 ## BMIQ
