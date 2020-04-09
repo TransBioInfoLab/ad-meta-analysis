@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
     toc: true
     number_sections: true
     df_print: paged
@@ -37,6 +36,9 @@ devtools::load_all("~/Dropbox (BBSR)/PanCancer/methTF/")
 dir.result <- "meta_analysis_region_results/"
 dir.result.meta.analysis <- file.path(dir.result, "step1_meta_analysis/")
 dir.result.comp <- file.path(dir.result, "step3_comp/")
+dir.result.lola <- file.path(dir.result, "step5_lola/")
+dir.result.enrichment <- file.path(dir.result, "step6_enrichment/")
+dir.result.pathway <- file.path(dir.result, "step7_pathway/")
 for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 ```
 
@@ -339,6 +341,918 @@ regions.and.single.plot <-
   )
 regions.and.single.plot$plot
 ```
+
+
+# Pathway analysis 
+
+## For regions
+
+###  Get results
+
+```{R}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp,pattern = "no.*csv",full.names = TRUE))
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+
+### Get probes from regions
+```{R}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "450k",
+                                                      clusterType = "regions")
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig$inputRegion
+
+meta_sig_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes)
+
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
+
+
+
+### Pathway analysis (gene ontology analysis)
+
+```{R pathway_libs,message = FALSE, results = "hide"}
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+```
+
+```{R pathway}
+### collection = "GO"
+meta_go <- gometh(
+  sig.cpg = meta_sig_probes,
+  all.cpg = meta_all_probes,
+  collection = "GO",
+  fract.counts = TRUE
+)
+# topGSA(meta_go)
+
+
+# Add genes to DE
+go <- missMethyl:::.getGO()
+out <- getMappedEntrezIDs(sig.cpg = meta_sig_probes,
+                          all.cpg = meta_all_probes,
+                          array.type="450K")
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+meta_go$de_genes <- plyr::aaply(rownames(meta_go),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+
+meta_go_ordered <- meta_go[
+  order(meta_go$P.DE),
+  ]
+
+write.csv(
+  meta_go_ordered,
+  paste0(dir.result.pathway, "pathway_region_GO_results_all.csv"),
+  row.names = TRUE
+)
+
+meta_go_ordered.bp <- meta_go_ordered %>%
+  tibble::rownames_to_column('GO') %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "BP" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames('GO')   
+meta_go_ordered.bp$FDR <- p.adjust(meta_go_ordered.bp$P.DE,"fdr")
+
+
+
+write.csv(
+  meta_go_ordered.bp,
+  paste0(dir.result.pathway, "pathway_region_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+meta_go_ordered.mf <- meta_go_ordered %>%
+  tibble::rownames_to_column('GO') %>%
+  dplyr::filter(ONTOLOGY == "MF" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames('GO')     # keep row names
+meta_go_ordered.mf$FDR <- p.adjust(meta_go_ordered.mf$P.DE,"fdr")
+
+
+
+write.csv(
+  meta_go_ordered.mf,
+  paste0(dir.result.pathway, "pathway_region_GO_results_MF_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+meta_go_ordered.cc <- meta_go_ordered %>%
+  tibble::rownames_to_column('GO') %>% # keep row names
+  dplyr::filter(ONTOLOGY == "CC" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames('GO')     # keep row names
+meta_go_ordered.cc$FDR <- p.adjust(meta_go_ordered.cc$P.DE,"fdr")
+
+write.csv(
+  meta_go_ordered.cc,
+  paste0(dir.result.pathway, "pathway_region_GO_results_CC_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+meta_go_ordered.bp  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results BP (FDR < 0.05)")
+
+meta_go_ordered.mf  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results MF (FDR < 0.05)")
+
+meta_go_ordered.cc  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results CC (FDR < 0.05)")
+```
+
+```{R kegg}
+### collection = "KEGG"
+meta_kegg <- gometh(
+  sig.cpg = meta_sig_probes,
+  all.cpg = meta_all_probes,
+  collection = "KEGG",
+  fract.counts = TRUE
+)
+# topGSA(meta_kegg)
+
+kegg <- missMethyl:::.getKEGG()
+out <- getMappedEntrezIDs(sig.cpg = meta_sig_probes,
+                          all.cpg = meta_all_probes,
+                          array.type="450K")
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+meta_kegg$de_genes <- plyr::aaply(rownames(meta_kegg),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+
+meta_kegg_ordered <- meta_kegg[
+  order(meta_kegg$P.DE),
+  ]
+
+write.csv(
+  meta_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_region_KEGG_results_all.csv"),
+  row.names = TRUE
+)
+
+
+meta_kegg_ordered <- meta_kegg_ordered %>%
+  tibble::rownames_to_column('KEGG') %>% # keep row names
+  dplyr::filter(N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames('KEGG')     # keep row names
+meta_kegg_ordered$FDR <- p.adjust(meta_kegg_ordered$P.DE,"fdr")
+write.csv(
+  meta_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_region_KEGG_results_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+```
+
+```{R}
+meta_kegg_ordered  %>% 
+  dplyr::filter(P.DE < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "kegg results (P.DE < 0.05)")
+```
+
+
+## For single cpgs
+
+###  Get results
+
+```{R}
+### Foreground
+single.cpg.results <- readr::read_csv(
+  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_df.csv",
+  col_types = readr::cols()
+)
+single.cpg.sig.results <- readr::read_csv(                                                        
+  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv",
+  col_types = readr::cols()
+)                                                                                                 
+
+foreground.probes <- single.cpg.sig.results %>% pull(cpg) %>% as.character
+length(foreground.probes)
+
+### Background
+background.probes <- single.cpg.results  %>% pull(cpg) %>% as.character 
+length(background.probes)
+```
+
+
+### Pathway analysis (gene ontology analysis)
+
+```{R pathway_libs_single,message = FALSE, results = "hide"}
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+```
+
+```{R pathway_single}
+### collection = "GO"
+meta_go <- gometh(
+  sig.cpg = foreground.probes,
+  all.cpg = background.probes,
+  collection = "GO",
+  fract.counts = TRUE
+)
+
+# Add genes to DE
+go <- missMethyl:::.getGO()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type="450K")
+sorted.eg.sig <-  out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+meta_go$de_genes <- plyr::aaply(rownames(meta_go),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+# topGSA(meta_go)
+
+meta_go_ordered <- meta_go[
+  order(meta_go$P.DE),
+  ]
+
+write.csv(
+  meta_go_ordered,
+  paste0(dir.result.pathway, "pathway_single_cpg_GO_results_all.csv"),
+  row.names = TRUE
+)
+
+meta_go_ordered.bp <- meta_go_ordered %>%
+  tibble::rownames_to_column("GO") %>% # keep row names
+  dplyr::filter(ONTOLOGY == "BP" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")     # keep row names
+meta_go_ordered.bp$FDR <- p.adjust(meta_go_ordered.bp$P.DE,"fdr")
+
+
+
+write.csv(
+  meta_go_ordered.bp,
+  paste0(dir.result.pathway, "pathway_single_cpg_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+meta_go_ordered.mf <- meta_go_ordered %>%
+  tibble::rownames_to_column("GO") %>% # keep row names
+  dplyr::filter(ONTOLOGY == "MF" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")     # keep row names
+meta_go_ordered.mf$FDR <- p.adjust(meta_go_ordered.mf$P.DE,"fdr")
+
+
+
+write.csv(
+  meta_go_ordered.mf,
+  paste0(dir.result.pathway, "pathway_single_cpg_GO_results_MF_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+meta_go_ordered.cc <- meta_go_ordered %>%
+  tibble::rownames_to_column("GO") %>% # keep row names
+  dplyr::filter(ONTOLOGY == "CC" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")     # keep row names
+meta_go_ordered.cc$FDR <- p.adjust(meta_go_ordered.cc$P.DE,"fdr")
+
+write.csv(
+  meta_go_ordered.cc,
+  paste0(dir.result.pathway, "pathway_single_cpg_GO_results_CC_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+meta_go_ordered.bp  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results BP (FDR < 0.05)")
+
+meta_go_ordered.mf  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results MF (FDR < 0.05)")
+
+meta_go_ordered.cc  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results CC (FDR < 0.05)")
+```
+
+```{R kegg_single}
+### collection = "KEGG"
+meta_kegg <- gometh(
+  sig.cpg = foreground.probes,
+  all.cpg = background.probes,
+  collection = "KEGG",
+  fract.counts = TRUE
+)
+# topGSA(meta_kegg)
+
+kegg <- missMethyl:::.getKEGG()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type = "450K")
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+meta_kegg$de_genes <- plyr::aaply(rownames(meta_kegg),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+meta_kegg_ordered <- meta_kegg[
+  order(meta_kegg$P.DE),
+  ]
+
+write.csv(
+  meta_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_single_cpg_KEGG_results_all.csv"),
+  row.names = TRUE
+)
+
+
+meta_kegg_ordered <- meta_kegg_ordered %>%
+  tibble::rownames_to_column("KEGG") %>% # keep row names
+  dplyr::filter(N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("KEGG")     # keep row names
+meta_kegg_ordered$FDR <- p.adjust(meta_kegg_ordered$P.DE,"fdr")
+write.csv(
+  meta_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_single_cpg_KEGG_results_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+```
+
+```{R}
+meta_kegg_ordered  %>% 
+  dplyr::filter(P.DE < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "kegg results (P.DE < 0.05)")
+```
+
+
+## For regions + single cpgs
+
+### Get probes
+
+```{R}
+all.foreground.probes <- c(meta_sig_probes, foreground.probes) %>% unique  
+all.background.probes <- c(meta_all_probes, background.probes) %>% unique
+```
+
+### Pathway analysis (gene ontology analysis)
+
+```{R pathway_libs_regions_cpgs,message = FALSE, results = "hide"}
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+```
+
+```{R pathway_regions_cpgs}
+### collection = "GO"
+all_go <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "GO",
+  fract.counts = TRUE
+)
+# topGSA(all_go)
+
+go <- missMethyl:::.getGO()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type = "450K")
+sorted.eg.sig <-  out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_go$de_genes <- plyr::aaply(rownames(meta_go),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_go_ordered <- all_go[
+  order(all_go$P.DE),
+  ]
+
+write.csv(
+  all_go_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_all.csv"),
+  row.names = TRUE
+)
+
+all_go_ordered.bp <- all_go_ordered %>%
+  tibble::rownames_to_column("GO") %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "BP" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")   # keep row names
+all_go_ordered.bp$FDR <- p.adjust(all_go_ordered.bp$P.DE,"fdr")
+
+
+
+write.csv(
+  all_go_ordered.bp,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+all_go_ordered.mf <- all_go_ordered %>%
+  tibble::rownames_to_column("GO") %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "MF" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")   # keep row names
+all_go_ordered.mf$FDR <- p.adjust(all_go_ordered.mf$P.DE,"fdr")
+
+
+
+write.csv(
+  all_go_ordered.mf,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_MF_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+all_go_ordered.cc <- all_go_ordered %>%
+  tibble::rownames_to_column("GO") %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "CC" & N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("GO")   # keep row names
+all_go_ordered.cc$FDR <- p.adjust(all_go_ordered.cc$P.DE,"fdr")
+
+write.csv(
+  all_go_ordered.cc,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_CC_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+all_go_ordered.bp  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results BP (FDR < 0.05)")
+
+all_go_ordered.mf  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results MF (FDR < 0.05)")
+
+all_go_ordered.cc  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results CC (FDR < 0.05)")
+```
+
+```{R kegg_regions_cpgs}
+### collection = "KEGG"
+all_kegg <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "KEGG",
+  fract.counts = TRUE
+)
+# topGSA(all_kegg)
+
+kegg <- missMethyl:::.getKEGG()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type = "450K")
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_kegg$de_genes <- plyr::aaply(rownames(meta_kegg),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_kegg_ordered <- all_kegg[
+  order(all_kegg$P.DE),
+  ]
+
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_all.csv"),
+  row.names = TRUE
+)
+
+
+all_kegg_ordered <- all_kegg_ordered %>%
+  tibble::rownames_to_column("KEGG") %>%  # keep row names
+  dplyr::filter(N >= 5 & N <= 200) %>%
+  tibble::column_to_rownames("KEGG")      # keep row names
+all_kegg_ordered$FDR <- p.adjust(all_kegg_ordered$P.DE,"fdr")
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+
+
+```
+
+```{R}
+all_kegg_ordered  %>% 
+  dplyr::filter(P.DE < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "kegg results (P.DE < 0.05)")                                   
+```                                                                                     
+
+
+# LOLA: Locus overlap analysis for enrichment of genomic ranges
+
+## For regions
+
+```{R LOLA, results = "hide", message = FALSE}
+### Call in datasets
+meta_sig_noCrossHyb_noSmoke <- read.csv(
+  paste0(dir.result.comp, "meta_analysis_no_crossHyb_smoking_ov_comb_p.csv"),
+) #dim: 119 59
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+
+meta_sig_hyper_noCrossHyb_noSmoke <- meta_sig_noCrossHyb_noSmoke %>%
+    filter(estimate > 0)
+
+meta_sig_hypo_noCrossHyb_noSmoke <- meta_sig_noCrossHyb_noSmoke %>%
+    filter(estimate < 0)
+
+### Turn input regions into GRanges
+library(coMethDMR)
+meta_sig_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_noCrossHyb_noSmoke$inputRegion)
+meta_sig_hyper_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_hyper_noCrossHyb_noSmoke$inputRegion)
+meta_sig_hypo_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_hypo_noCrossHyb_noSmoke$inputRegion)
+meta_all_gr <- RegionsToRanges(meta_all$inputRegion)
+```
+
+```{R LOLA, results = "hide", message = FALSE}
+library(LOLA)
+
+regionDB_hg19 <- loadRegionDB("../../cohorts_meta_analysis/LOLACore/hg19")
+
+### All sig. regions
+locResults <- runLOLA(
+  userSets = meta_sig_noCrossHyb_noSmoke_gr,
+  userUniverse = meta_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+locResults$pValue <- 10^(-locResults$pValueLog)
+locResults_ordered <- locResults[
+  ,c(1:3, 24, 4:23)
+]                                                  
+write.csv(
+  locResults_ordered,                              
+  paste0(dir.result.lola, "regions_all_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>% 
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "regions all LOLA results")
+```
+
+```{R LOLA, results = "hide", message = FALSE}
+### All hyper regions
+locResults <- runLOLA(
+  userSets = meta_sig_hyper_noCrossHyb_noSmoke_gr,
+  userUniverse = meta_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+locResults$pValue <- 10^(-locResults$pValueLog)
+locResults_ordered <- locResults[
+  ,c(1:3, 24, 4:23)
+]                                                  
+write.csv(
+  locResults_ordered,                              
+  paste0(dir.result.lola, "regions_hyper_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>% 
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "regions hyper LOLA results")
+```
+
+```{R LOLA, results = "hide", message = FALSE}
+### All hypo regions
+locResults <- runLOLA(
+  userSets = meta_sig_hypo_noCrossHyb_noSmoke_gr,
+  userUniverse = meta_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+locResults$pValue <- 10^(-locResults$pValueLog)
+locResults_ordered <- locResults[
+  ,c(1:3, 24, 4:23)
+]                                                  
+write.csv(
+  locResults_ordered,                              
+  paste0(dir.result.lola, "regions_hypo_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>% 
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "regions hypo LOLA results")
+```
+
+## For single cpg 
+
+```{R LOLA_single, results = "hide", message = FALSE}
+### Call in datasets
+cpg_sig_noCrossHyb_noSmoke <- read.csv(
+  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"
+) #dim: 3751 24
+
+cpg_all <- read.csv(
+  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_df.csv"
+) #dim: 450793 24
+
+cpg_sig_hyper_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+    filter(estimate > 0)
+cpg_sig_hypo_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+    filter(estimate < 0)
+
+### Turn input regions into GRanges
+library(GenomicRanges)
+cpg_sig_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_noCrossHyb_noSmoke
+)
+cpg_sig_hyper_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hyper_noCrossHyb_noSmoke
+)
+cpg_sig_hypo_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hypo_noCrossHyb_noSmoke
+)
+cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
+```
+
+```{R LOLA_single, results = "hide", message = FALSE}
+library(LOLA)
+
+regionDB_hg19 <- loadRegionDB("../../cohorts_meta_analysis/LOLACore/hg19")
+
+### All sig. cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_all_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg all LOLA results")
+```
+
+```{R LOLA_single, results = "hide", message = FALSE}
+
+### All hyper cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hyper_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hyper_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hyper LOLA results")
+```
+
+```{R LOLA_single, results = "hide", message = FALSE}
+
+### All hypo cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hypo_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hypo_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hypo LOLA results")
+```
+
 
 # Session information
 ```{R}
