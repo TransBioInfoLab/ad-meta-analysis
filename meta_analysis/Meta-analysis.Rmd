@@ -30,6 +30,9 @@ library(GenomicRanges)
 library(coMethDMR)
 ```
 
+# Meta-analysis Regions
+
+## Paths
 ```{R}
 dir.result <- "meta_analysis_region_results/"
 dir.result.meta.analysis <- file.path(dir.result, "step1_meta_analysis/")
@@ -42,12 +45,13 @@ dir.result.pathway <- file.path(dir.result, "step7_pathway/")
 for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 ```
 
-# Meta-analysis Regions
 
-1. select the most significant cluster for each input region
-2. merge cohorts
-3. meta analysis
-4. add annotation
+## Steps
+
+1. Select the most significant cluster for each input region
+2. Merge cohorts
+3. Meta analysis
+4. Add annotation
 
 
 ## Import datasets and pre-process for each cohort 
@@ -206,11 +210,11 @@ write.csv(
 
 ```
 
-# Filtering coMethDMRs
+## Filtering coMethDMRs
 
-## Annotate coMethDMRs with crosshybrdizing probes chen et al. (2013)  & smoking probes 
+### Annotate coMethDMRs with crosshybrdizing probes chen et al. (2013)  & smoking probes 
 
-### Get crosshybrdizing probes
+#### Get crosshybrdizing probes
 ```{R}
 ### call in all cross hybridizing probes
 eh = ExperimentHub()
@@ -219,7 +223,7 @@ crosshyb <- eh[["EH3129"]]
 ```
 
 
-### Get significant smoking probes
+#### Get significant smoking probes
 
 ```{R}
 smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
@@ -235,7 +239,7 @@ smoking.sig.probes <- smoking %>% dplyr::filter(`P-value` < 1*10^(-7)) %>% pull(
 length(smoking.sig.probes)
 ```
 
-### Load significant coMethDMRs identified in meta-analaysis
+#### Load significant coMethDMRs identified in meta-analaysis
 ```{R}
 # Call in meta analysis final results
 meta_all <- readr::read_csv(
@@ -269,7 +273,7 @@ names(cometh.probes.list) <-  files %>% dirname %>% dirname %>% basename
 lapply(cometh.probes.list,length)
 ```
 
-### Map probes in each region to smoking and crosshybrdizing 
+#### Map probes in each region to smoking and crosshybrdizing 
 
 ```{R}
 extractCrosHybridization <- function(probes.list){
@@ -310,7 +314,7 @@ plyr::count(ROSMAP_crossHyb_df, vars = grep("_bi",colnames(ROSMAP_crossHyb_df),v
 
 ```
 
-### Merge smoking and crossHyb probes  information with meta analysis results 
+#### Merge smoking and crossHyb probes  information with meta analysis results 
 
 ```{R}
 meta_all_final <- meta_all %>% left_join(Gasparoni_crossHyb_df)  %>% 
@@ -337,7 +341,7 @@ meta_all_final <- meta_all_final[
 str(meta_all_final)
 ```
 
-### Save
+#### Save
 
 ```{R}
 write.csv(
@@ -362,9 +366,9 @@ meta_all_final %>%
 ```
 
 
-## Overlap with comb-p DMRs 
+### Overlap with comb-p DMRs 
 
-### Import datasets
+#### Import datasets
 
 ```{R}
 library(GenomicRanges)
@@ -401,7 +405,7 @@ combp_sig_gr <- makeGRangesFromDataFrame(combp_sig)
 combp_sig_gr
 ```
 
-### Save overlapping results
+#### Save overlapping results
 
 ```{R}
 overlapping.results <- linear_sig[
@@ -443,7 +447,7 @@ linear_sig_input_no_crossHyb_smoking_gr <- linear_sig %>%
 linear_sig_input_no_crossHyb_smoking_gr
 ```
 
-### Create Venn Diagram
+#### Create Venn Diagram
 
 ```{R ChIPpeakAnno_lib, message = FALSE, results = "hide"}
 library(ChIPpeakAnno)
@@ -510,20 +514,262 @@ makeVennDiagram(
 dev.off()
 ```
 
+# Meta-analysis Single-cpgs
+
+## Steps
+
+1. Select the most significant cluster for each input region
+2. Merge cohorts
+3. Meta analysis
+4. Add annotation
+
+
+## Import datasets and pre-process for each cohort 
+
+```{R, eval = FALSE}
+library(dplyr)
+data.final <- "meta_analysis_single_cpg_results/"
+dir.create(data.final,recursive = TRUE,showWarnings = FALSE)
+results.files <- dir("DATASETS/",
+                     pattern = "single_cpg_pVal_df.csv",
+                     recursive = TRUE,
+                     full.names = TRUE,
+                     ignore.case = TRUE)
+
+for(i in results.files){
+  data <- readr::read_csv(i)
+  dataset <- unlist(stringr::str_split(i,"//|/"))[2]  %>% as.character()
+  aux <- paste0(dataset,c("_estimate", "_se", "_pValue", "_fdr"))
+  colnames(data) <- c("cpg", aux)
+  assign(dataset,data)
+}
+```
+
+## Create a merged final dataset 
+```{R, eval = FALSE}
+cohort_ls <- list(
+  Gasparoni = GASPARONI,
+  London_PFC = LONDON,
+  MtSinai = MtSinai,
+  ROSMAP = ROSMAP
+)
+
+### outer join input region
+multi_cohorts <- Reduce(
+  function(x,y, ...) merge(x, y, by = "cpg", all = TRUE, ...),
+  cohort_ls
+) #dim: 437713 17
+dim(multi_cohorts)
+```
+
+## Meta analysis 
+```{R, eval = FALSE}
+### calculate meta analysis z scores and p values
+library(meta)
+
+doParallel::registerDoParallel(cores = parallel::detectCores()/2)
+meta_df <- plyr::adply(.data = multi_cohorts, 
+                       .margins = 1, 
+                       .fun =  function(rowOne_df){
+                         
+                         est <- rowOne_df[grep("estimate",colnames(rowOne_df))] %>% as.numeric
+                         
+                         direction <-  paste(ifelse(
+                           is.na(est), ".",
+                           ifelse(est > 0, "+", "-")
+                         ),collapse = "")
+                         
+                         se <- rowOne_df[grep("se",colnames(rowOne_df))] %>% as.numeric
+                         cohort <- gsub("_se","",grep("se",colnames(rowOne_df),value = T))
+                         rowOne_reform_df <- data.frame(
+                           cohort = cohort,
+                           est = est,
+                           se = se,
+                           stringsAsFactors = FALSE
+                         )
+                         
+                         f <- metagen(
+                           TE = est,
+                           seTE = se,
+                           data = rowOne_reform_df
+                         )
+                         
+                         tibble::tibble(
+                           cpg = rowOne_df$cpg,
+                           estimate = f$TE.fixed,
+                           se = f$seTE.fixed,
+                           pVal.fixed = f$pval.fixed,
+                           pVal.random = f$pval.random,
+                           pValQ = f$pval.Q,
+                           direction = direction
+                         )
+                       }  , .progress = "time",
+                       .parallel = TRUE,
+                       .id = NULL
+)
+
+### create final pVal
+meta_df$pVal.final <- ifelse(
+  meta_df$pValQ > 0.05, meta_df$pVal.fixed, meta_df$pVal.random
+)
+
+### calculate fdr
+meta_df$fdr <- p.adjust(meta_df$pVal.final, method = "fdr")
+
+### order meta_df
+meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
+                             grep("_",colnames(meta_df),invert = F))]
+meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final),]
+```
+
+## Add annotation to input cpgs
+```{R, eval = FALSE}
+library(sesame)
+probes.info <- sesameDataGet("HM450.hg19.manifest")
+probes.info <- probes.info[meta_final_ordered_df$cpg %>% as.character()] %>% as.data.frame %>% dplyr::select(c("seqnames","start","end"))
+
+result_annot_df <- merge(
+  y = meta_final_ordered_df,
+  x = probes.info,
+  by.y = "cpg",
+  by.x = "row.names",
+  all.y = TRUE,
+  sort = FALSE
+)
+
+colnames(result_annot_df)[1] <- "cpg"
+### final raw data
+write.csv(
+    result_annot_df  %>% as.data.frame(),
+  paste0(data.final, "meta_analysis_single_cpg_df.csv"),
+  row.names = FALSE
+)
+```
+
+## Prepare dataset for comb-p
+
+```{R, eval = FALSE}
+result_for_combp_df <- result_annot_df[
+  , c("seqnames", "start", "end", "pVal.final")
+]
+colnames(result_for_combp_df)[4] <- "pValue"
+colnames(result_for_combp_df)[1] <- "chr"
+
+
+write.csv(
+  result_for_combp_df %>% as.data.frame(),
+  paste0(data.final, "meta_analysis_single_cpg_df_for_combp.csv"),
+  row.names = FALSE
+)
+```
+
+
+
+## Compare results with smith top 10
+```{R, eval = FALSE}
+smithTop10 <- c(
+  "cg22867816", "cg06977285", "cg05783384", "cg07349815", "cg21806242",
+  "cg03834767", "cg13935577", "cg27078890", "cg22962123", "cg26199857"
+)
+
+colnames(result_annot_df)[1] <- "cpg"
+
+result_smithTop10 <- result_annot_df[match(smithTop10, result_annot_df$cpg),]
+result_smithTop10 <- result_smithTop10[complete.cases(result_smithTop10$cpg),]
+
+write.csv(
+  result_smithTop10 %>% as.data.frame(),
+  paste0(data.final, "meta_analysis_single_cpg_df_smithTop10.csv"),
+  row.names = FALSE
+)
+```
+
+
+
+## Delete cross-hybridizing and smoking probes from sig probes 
+```{R, eval = FALSE}
+### Exclude non-significant probes
+result_annot_sig_df <- result_annot_df %>% filter(fdr < 0.05) #dim:3979 24
+
+write.csv(
+    result_annot_sig_df %>% as.data.frame(),
+    paste0(data.final, "meta_analysis_single_cpg_sig_df.csv"),
+    row.names = FALSE
+)
+
+### Get crosshybrdizing probes
+library(ExperimentHub)
+
+eh = ExperimentHub()
+query(eh, "DMRcate")
+crosshyb <- eh[["EH3129"]]
+
+
+### Get significant smoking probes
+smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
+
+if(!file.exists(basename(smoking.file))) downloader::download(smoking.file,basename(smoking.file))
+
+smoking <- readxl::read_xlsx(
+    basename(smoking.file),
+    sheet = "02",
+    skip = 2
+)
+smoking.sig.probes <- smoking %>% dplyr::filter(`P-value` < 1*10^(-7)) %>% pull("Probe ID")
+
+
+### Exclude cross-hybridizing and smoking probes
+result_annot_sig_df$cpg <- as.character(result_annot_sig_df$cpg)
+
+result_annot_sig_no_crossHyb_smoking_df <- result_annot_sig_df[
+    !(result_annot_sig_df$cpg %in% c(crosshyb, smoking.sig.probes)),
+] #dim: 3751 28
+
+### Add annotation
+library(coMethDMR)
+
+result_annot_sig_no_crossHyb_smoking_df$chrom <- as.character(
+    result_annot_sig_no_crossHyb_smoking_df$seqnames
+)
+
+result_final <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df)
+
+result_final_ordered <- result_final[
+    ,c(
+        1:4, 30:33, 5:12,
+        grep("GASPARONI", colnames(result_final), ignore.case = TRUE, invert = FALSE),
+        grep("LONDON", colnames(result_final), ignore.case = TRUE, invert = FALSE),
+        grep("MTSINAI", colnames(result_final), ignore.case = TRUE, invert = FALSE),
+        grep("ROSMAP", colnames(result_final), ignore.case = TRUE, invert = FALSE)
+    )
+]
+
+write.csv(
+    result_final_ordered %>% as.data.frame(),
+    paste0(data.final, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"),
+    row.names = FALSE
+)
+
+```
+
+
 # Results from single CPG analysis and DMR analysis
 
 ## Adding significant probes from single cpg analysis to DMR analysis
 
 ```{R}
 overlapping.results <-  readr::read_csv(
-  paste0(dir.result.comp, "meta_analysis_ov_comb_p.csv")
+  paste0(dir.result.comp, "meta_analysis_ov_comb_p.csv"),
+  col_types = readr::cols()
 )
 probes.in.all.regions <- coMethDMR::GetCpGsInAllRegion(
   overlapping.results$inputRegion
 )
 
 single.cpg.results <- readr::read_csv(
-  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
+  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv",
+  col_types = readr::cols()
+  )
 single.cpg.results.probes <- single.cpg.results %>% pull(cpg) %>% as.character
 
 overlapping.results$Probes_single_cpg_analysis_fdr_0_05 <- lapply(probes.in.all.regions, function(x){
@@ -587,873 +833,29 @@ venn <- venn.diagram(
 )
 ```
 
-```{R, include = TRUE, echo = FALSE, fig.width = 6, fig.height = 6}
-# # Make the plot                                                                  #Lanyu: commented out
-# venn <- venn.diagram(
-#     x = list(
-#         probes.in.all.regions %>% unique %>% unlist , 
-#         single.cpg.results.probes.no_smoking_crosshyb %>% unique
-#     ),
-#     category.names = c("DMR analysis probes" , "Single cpg analysis probes" ),
-#     filename = NULL,
-#     output = TRUE ,
-#     imagetype = "png" ,
-#     height = 300 , 
-#     width = 300 , 
-#     resolution = 300,
-#     compression = "lzw",
-#     lwd = 1,
-#     col = c("#440154ff", '#21908dff'),
-#     fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
-#     cex = 3,
-#     cat.cex = 3,
-#     cat.default.pos = "outer",
-#     cat.pos = c(0, 180),
-#     cat.dist = c(0.01, 0.01)
-# )
-# 
-# grid.draw(venn)
-```
-
-## Adding chromatin states to significant DMRs and CpGs (Lanyu)
-
-```{R, eval = FALSE}
-### Call in chromatin states dataset
-ChmmModels <- readr::read_tsv("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed",col_names = FALSE)
-colnames(ChmmModels) <- c("chr","start","end","state")
-states <- readr::read_csv("chromHMM_labels.csv",col_names = FALSE)
-states$X1 <- paste0("E",states$X1)  
-ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
-ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
-
-### Connect cpgs with chromatin states
-probes.gr <- IlluminaHumanMethylation450kanno.ilmn12.hg19::Locations %>%
-  makeGRangesFromDataFrame(start.field = "pos",end.field = "pos")
-hits <- findOverlaps(probes.gr,annotation.gr,select = "first")
-col.name <- names(values(annotation.gr))[1]
-annot <- data.frame(row.names = names(probes.gr),
-                    values(annotation.gr)[,1][hits],stringsAsFactors = FALSE)
-colnames(annot) <- col.name
-
-### Call in significant DMRs and single CpGs
-sig_dmrs <- read.csv(
-  paste0(
-    dir.result.cpg.vs.dmr,
-    "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
-)
-
-sig_cpgs <- readr::read_csv(
-  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
-
-### Find overlaps between sig DMRs and chromatin states
-probes.cluster.all <- coMethDMR::getPredefinedCluster(
-  arrayType = "450k",
-  clusterType = "regions"
-)
-
-sig_dmrs$state <- sapply(seq_len(nrow(sig_dmrs)), function(row){
-  region <- as.character(sig_dmrs$inputRegion[row])
-  idx <- gsub(
-    "450k_Gene_3_200.|450k_InterGene_3_200.","",
-    names(probes.cluster.all)) %in% region
-  probes <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
-  annot[row.names(annot) %in% probes, ] %>% unique %>% paste(collapse = ";")
-})
-
-sig_dmrs_state <- sig_dmrs[, c(1:5, 68, 6:67)]
-
-write.csv(
-  sig_dmrs_state,
-  paste0(dir.result.cpg.vs.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_combp_singleCpG_state.csv"),
-  row.names = FALSE
-)
-
-
-### Find overlaps between sig CpGs and chromatin states
-sig_cpgs_state <- merge(
-  sig_cpgs, annot,
-  by.x = "cpg",
-  by.y = "row.names"
-)
-
-sig_cpgs_state <- sig_cpgs_state[, c(1:8, 33, 9:32)]
-
-write.csv(
-  sig_cpgs_state,
-  paste0("meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_with_state_df.csv"),
-  row.names = FALSE
-)
-
-```
-
-## Adding GREAT annotation to significant DMRs and CpGs (Lanyu)
-
-```{R, eval = FALSE}
-### Call in datasets
-sig_dmrs <- read.csv(
-  paste0(
-    dir.result.cpg.vs.dmr,
-    "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_combp_singleCpG_state.csv")
-)
-
-sig_cpgs <- read.csv(
-  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_with_state_df.csv")
-
-### Add GREAT annotation
-library(rGREAT)
-library(coMethDMR)
-library(tidyr)
-
-## 1. For DMRs
-# Find GREAT annotation for each region
-regions <- data.frame(RegionsToRanges(sig_dmrs$inputRegion))
-job_regions <- submitGreatJob(regions, version = "3.0")
-regionsToGenes <- data.frame(plotRegionGeneAssociationGraphs(job_regions))
-regionsToGenes$GREAT_annotation <- ifelse(
-    regionsToGenes$distTSS > 0,
-    paste0(regionsToGenes$gene, " (+", regionsToGenes$distTSS, ")"),
-    paste0(regionsToGenes$gene, " (", regionsToGenes$distTSS, ")")
-)
-regionsToGenes <- regionsToGenes[
-    ,c("seqnames", "start", "end", "width", "GREAT_annotation")
-]
-# Reshape regionToGene dataset from long to wide
-regions_df <- regionsToGenes %>%
-    group_by(seqnames, start, end, width) %>%
-    mutate(time = paste0("time", row_number())) %>%
-    spread(time, GREAT_annotation) %>%
-    mutate(inputRegion = paste0(seqnames, ":", start, "-", end)) %>%
-    mutate(GREAT_annotation = ifelse(
-        is.na(time2), time1, paste(time1, time2, sep = "; ")
-    )) %>%
-    ungroup() %>%
-    select(inputRegion, GREAT_annotation)
-
-dmr_final <- merge(
-  regions_df, sig_dmrs,
-  by = "inputRegion",
-  sort = FALSE
-)
-dmr_final <- dmr_final[order(dmr_final$fdr), ]
-write.csv(
-    dmr_final,
-    paste0(
-        dir.result.cpg.vs.dmr,
-        "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_all.csv"
-    ),
-    row.names = FALSE
-)
-
-## 2. For CpGs
-job_regions2 <- submitGreatJob(
-    sig_cpgs[, c("seqnames", "start", "end")],
-    version = "3.0"
-)
-regionsToGenes2 <- data.frame(
-    plotRegionGeneAssociationGraphs(job_regions2)
-)
-regionsToGenes2$GREAT_annotation <- ifelse(
-    regionsToGenes2$distTSS > 0,
-    paste0(regionsToGenes2$gene, " (+", regionsToGenes2$distTSS, ")"),
-    paste0(regionsToGenes2$gene, " (", regionsToGenes2$distTSS, ")")
-)
-regionsToGenes2 <- regionsToGenes2[
-    ,c("seqnames", "start", "end", "width", "GREAT_annotation")
-]
-
-cpgs_df <- regionsToGenes2 %>%
-    group_by(seqnames, start, end, width) %>%
-    mutate(time = paste0("time", row_number())) %>%
-    spread(time, GREAT_annotation) %>%
-    mutate(GREAT_annotation = ifelse(
-        is.na(time2), time1,
-        ifelse(
-            is.na(time3),
-            paste(time1,time2, sep = "; "),
-            ifelse(
-                is.na(time4),
-                paste(time1,time2,time3, sep = "; "),
-                ifelse(
-                    is.na(time5),
-                    paste(time1,time2,time3,time4, sep = "; "),
-                    ifelse(
-                        is.na(time6),
-                        paste(time1,time2,time3,time4,time5, sep = "; "),
-                        paste(time1,time2,time3,time4,time5,time6, sep = "; ")))))
-    )) %>%
-    ungroup() %>%
-    select(seqnames, start, end, GREAT_annotation)
-
-cpg_final <- merge(
-   cpgs_df,  sig_cpgs,
-   by = c("seqnames", "start", "end"),
-   sort = FALSE
-)
-
-cpg_final <- cpg_final[
-    order(cpg_final$fdr), c(5, 1:3, 4, 6:ncol(cpg_final))
-]
-
-write.csv(
-    cpg_final,
-    "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_with_state_greatAnnot_df.csv",
-    row.names = FALSE
-)
-```
-
-# Enrichment analysis
-
-## For regions
-
-### Get data
-```{R}
-devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
-
-meta.df <- read.csv(
-  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
-) 
-dim(meta.df)
-
-meta.df.sig <- read.csv(
-  paste0(dir.result.comp, "meta_analysis_no_crossHyb_smoking_ov_comb_p.csv"),
-) 
-dim(meta.df.sig)
-
-meta.df.sig
-meta.df.sig.hyper <- meta.df.sig  %>%  filter(estimate > 0)
-meta.df.sig.hypo <- meta.df.sig  %>%  filter(estimate < 0)
-```
-
-### Get probes from regions
-```{R}
-probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "450k",
-                                                      clusterType = "regions")
-# foreground
-# All sig probes
-idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% meta.df.sig$inputRegion
-meta.df.sig.probes <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
-length(meta.df.sig.probes)
-
-# All sig hypo probes
-idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% meta.df.sig.hypo$inputRegion
-meta.df.sig.probes.hypo <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
-length(meta.df.sig.probes.hypo)
-
-# All sig hyper probes
-idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% meta.df.sig.hyper$inputRegion
-meta.df.sig.probes.hyper <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
-length(meta.df.sig.probes.hyper)
-
-
-# Our background
-# All probes
-idx <- gsub("450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)) %in% meta.df$inputRegion
-all.clustered.probes <- probes.cluster.all[idx] %>% unlist %>% as.character() %>% unique
-length(all.clustered.probes)
-```
-
-### Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","darkgreen"),
-                         fg.label = "Probes in sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE)
-
-p1 <- result$plot + ggtitle("All coMethDMRs") + ylim(0,60)
-p1
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- cbind("Analysis" = "Relation to Island - Hypo/Hyper sig. coMethDMR vs clustered probes",tab)
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Probes in sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","darkgreen"),
-                         plot.filename = "meta_analysis_sig_vs_regions_gene.pdf")
-
-p2 <- result$plot + ggtitle("All coMethDMRs") + ylim(0,60)
-p2 
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hypo/Hyper sig. coMethDMR vs clustered probes",tab))
-
-```
-
-
-### Hypo Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hypo,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","#5285f2"),
-                         fg.label = "Probes in hypo. sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE,
-                         plot.filename = "meta_analysis_hypo_sig_vs_regions_island.pdf")
-
-p3 <- result$plot + ggtitle("Hypomethylated coMethDMRs") + ylim(0,60)
-p3 
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "Relation to Island - Hypo sig. coMethDMR vs clustered probes",tab))
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hypo,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Probes in hypo. sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","#5285f2"),
-                         plot.filename = "meta_analysis_hypo_sig_vs_regions_gene.pdf")
-
-p4 <- result$plot + ggtitle("Hypomethylated coMethDMRs") + ylim(0,60)
-p4
-
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hypo sig. coMethDMR vs clustered probes",tab))
-
-```
-
-
-### Hyper Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hyper,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","#A10036"),
-                         fg.label = "Probes in hyper. sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE,
-                         plot.filename = "meta_analysis_hyper_sig_vs_regions_island.pdf")
-
-p5 <- result$plot + ggtitle("Hypermethylated coMethDMRs") + ylim(0,60)
-p5
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "Relation to Island - Hyper sig. coMethDMR vs clustered probes",tab))
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hyper,
-                         bg.probes = all.clustered.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Probes in hyper. sig. meta-analysis coMethDMRs",
-                         bg.label = "All probes located closely on array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","#A10036"),
-                         plot.filename = "meta_analysis_hyper_sig_vs_regions_gene.pdf")
-
-p6 <- result$plot + ggtitle("Hypermethylated coMethDMRs") + ylim(0,60)
-p6
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hyper sig. coMethDMR vs clustered probes",tab))
-
-```
-
-### Hyper vs. Hypo Sig. regions
-
-```{R}
-
-all.plot <- cpGsGenomicFeatures(
-  list(
-    "Hypomethylated coMethDMRs" = meta.df.sig.probes.hypo,
-    "Hypermethylated coMethDMRs" = meta.df.sig.probes.hyper
-  ),
-  bar.colors = c("#A10036", "#5285f2"),
-  save.plot = FALSE,
-  plot.filename =  paste0(dir.result.enrichment,"/meta_analysis_hyper_sig_vs_hypo_sig.pdf")
-)
-p7 <- all.plot$plot + ggtitle("Hypermethylated coMethDMRs VS. hypomethylated coMethDMRs") + ylim(0,60)
-p7 
-```
-
-
-```{R}
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-# ChroMHMM
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-ChmmModels <- readr::read_tsv("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed",col_names = FALSE)
-colnames(ChmmModels) <- c("chr","start","end","state")
-states <- readr::read_csv("chromHMM_labels.csv",col_names = FALSE)
-states$X1 <- paste0("E",states$X1)  
-ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
-ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
-plot.chrm.hypo <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hypo,
-                                 bg.probes = all.clustered.probes,
-                                 annotation.gr = ChmmModels.gr,
-                                 fisher.test.alternative = "two.sided", 
-                                 bar.colors = c("black", "#5285f2"),
-                                 fg.label = paste0("hypomethylated probes (n = ",length(meta.df.sig.probes.hypo),")"), 
-                                 bg.label = paste0("Evaluated probes (n = ",length(all.clustered.probes),")"), 
-                                 enrichment.type = "customized",
-                                 plot.filename =  paste0(dir.result.enrichment,"hypo_chromHMM_states.png")
-)
-
-plot.chrm.hyper <- cpGsEnrichment(fg.probes = meta.df.sig.probes.hyper,
-                                  bg.probes = all.clustered.probes,  #Lanyu: changed from "all.clustered.probes"
-                                  annotation.gr = ChmmModels.gr,
-                                  fisher.test.alternative = "two.sided", 
-                                  bar.colors = c("black","#A10036"),
-                                  fg.label = paste0("hypermethylated probes (n = ",length(meta.df.sig.probes.hyper),")"), 
-                                  bg.label = paste0("Evaluated probes (n = ",length(all.clustered.probes),")"), 
-                                  enrichment.type = "customized",
-                                  plot.filename =  paste0(dir.result.enrichment,"hyper_chromHMM_states.png")
-)
-
-plot.chrm.sig <- cpGsEnrichment(fg.probes = meta.df.sig.probes,    
-                                bg.probes = all.clustered.probes,
-                                annotation.gr = ChmmModels.gr,
-                                fisher.test.alternative = "two.sided", 
-                                bar.colors = c("black", "darkgreen"),
-                                fg.label = paste0("All sig. probes (n = ",length(meta.df.sig.probes),")"), 
-                                bg.label = paste0("Evaluated probes (n = ",length(all.clustered.probes),")"),
-                                enrichment.type = "customized",
-                                plot.filename =  paste0(dir.result.enrichment,"hypo_hyper_chromHMM_states.png")
-)                                                                  
-
-tab <- plot.chrm.hyper$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hyper sig. coMethDMR vs clustered probes",tab))
-
-tab <- plot.chrm.hypo$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hypo sig. coMethDMR vs clustered probes",tab))
-
-tab <- plot.chrm.sig$table       
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hypo/Hyper sig. coMethDMR vs clustered probes",tab))           
-
-
-readr::write_csv(final.table,path = paste0(dir.result.enrichment,"enrichment_results_table.csv"))
-```
-
-
-```{R}
-library(patchwork)
-
-
-ggsave(
-  paste0(dir.result.enrichment,"/meta_analysis_enrichment_Hypo_and_hyper.pdf"),
-  plot = (p1 | p2 ),
-  width = 14,
-  height = 5
-)
-
-ggsave(
-  paste0(dir.result.enrichment,"/meta_analysis_enrichment_Hypo.pdf"),
-  plot = (p3 | p4 ),
-  width = 14,
-  height = 5
-)
-
-ggsave(
-  paste0(dir.result.enrichment,"/meta_analysis_enrichment_Hyper.pdf"),
-  plot = (p5 | p6 ),
-  width = 14,
-  height = 5
-)
-
-all.p <- (p1 | p2 ) /
-  (p3 | p4 ) /
-  (p5 | p6 ) /
-  p7 /
-  (plot.chrm.hypo$plot + ylim(0,55) | plot.chrm.hyper$plot + ylim(0,55)) /
-  plot.chrm.sig$plot + ylim(0,55)
-
-ggsave(
-  paste0(dir.result.enrichment,"/meta_analysis_enrichment.pdf"),
-  plot = all.p,
-  width = 14,
-  height = 30
-)
-
-```
-
-
-
-
-## For single cpg 
-
-### Get data
-```{R}
-cpg.df <- read.csv(
-  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_df.csv"
-) 
-dim(cpg.df)
-
-cpg.df.sig <- read.csv(
-  "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"
-) 
-dim(cpg.df.sig)
-
-cpg.df.sig
-cpg.df.sig.hyper <- cpg.df.sig  %>%  filter(estimate > 0)
-cpg.df.sig.hypo <- cpg.df.sig  %>%  filter(estimate < 0)
-```
-
-### Get probes from regions
-```{R}
-# foreground
-# All sig probes
-cpg.df.sig.probes <- cpg.df.sig$cpg %>% as.character() %>% unique
-length(cpg.df.sig.probes)
-
-# All sig hypo probes
-cpg.df.sig.probes.hypo <- cpg.df.sig.hypo$cpg %>% as.character() %>% unique
-length(cpg.df.sig.probes.hypo)
-
-# All sig hyper probes
-cpg.df.sig.probes.hyper <- cpg.df.sig.hyper$cpg %>% as.character() %>% unique
-length(cpg.df.sig.probes.hyper)
-
-
-# Our background
-#All probes
-cpg.df.probes <- cpg.df$cpg %>% as.character() %>% unique
-length(cpg.df.probes)
-```
-
-### Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","darkgreen"),
-                         fg.label = "Sig single probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         plot.filename = "single_cpg_sig_vs._all_island.pdf")
-
-p1 <- result$plot + ggtitle("Significant cpgs") + ylim(0,60)
-p1
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- cbind("Analysis" = "Relation to Island - Hypo/Hyper sig. probes vs all probes",tab)
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Sig single probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","darkgreen"),
-                         plot.filename = "single_cpg_sig_vs._all_gene.pdf")
-
-p2 <- result$plot + ggtitle("Significant cpgs") + ylim(0,60)
-p2 
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hypo/Hyper sig. probes vs all probes",tab))
-
-```
-
-
-### Hypo Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hypo,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","#5285f2"),
-                         fg.label = "Hypo. sig. probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         plot.filename = "single_cpg_hypo_sig_vs_all_island.pdf")
-
-p3 <- result$plot + ggtitle("Hypomethylated cpgs") + ylim(0,60)
-p3 
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "Relation to Island - Hypo sig. probes vs all probes",tab))
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hypo,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Hypo. sig. probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","#5285f2"),
-                         plot.filename = "single_cpg_hypo_sig_vs_all_gene.pdf")
-
-p4 <- result$plot + ggtitle("Hypomethylated cpgs") + ylim(0,60)
-p4
-
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hypo sig. probes vs all probes",tab))
-
-```
-
-
-### Hyper Sig. regions
-
-#### Relation to island
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hyper,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "island",
-                         fisher.test.alternative = "two.sided", 
-                         bar.colors = c("black","#A10036"),
-                         fg.label = "Hyper. sig. probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         plot.filename = "single_cpg_hyper_sig_vs_all_island.pdf")
-
-p5 <- result$plot + ggtitle("Hypermethylated cpgs") + ylim(0,60)
-p5
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "Relation to Island - Hyper sig. probes vs all probes",tab))
-
-```
-
-#### UCSC RefGene Group
-
-```{R}
-result <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hyper,
-                         bg.probes = cpg.df.probes,
-                         enrichment.type = "gene",
-                         fisher.test.alternative = "two.sided", 
-                         fg.label = "Hyper. sig. probes",
-                         bg.label = "All probes on the array",
-                         save.plot = FALSE,
-                         bar.colors = c("black","#A10036"),
-                         plot.filename = "single_cpg_hyper_sig_vs_all_gene.pdf")
-
-p6 <- result$plot + ggtitle("Hypermethylated cpgs") + ylim(0,60)
-p6
-result$table
-result$m.list
-
-tab <- result$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "UCSC RefGene Group hierarchy - Hyper sig. probes vs all probes",tab))
-
-```
-
-### Hyper vs. Hypo Sig. regions
-
-```{R}
-
-all.plot <- cpGsGenomicFeatures(
-  list(
-    "Hypomethylated probes" = cpg.df.sig.probes.hypo,
-    "Hypermethylated probes" = cpg.df.sig.probes.hyper
-  ),
-  bar.colors = c("#A10036", "#5285f2"),
-  save.plot = FALSE,
-  plot.filename =  paste0(dir.result.enrichment,"/single_cpg_hyper_sig_vs_hypo_sig.pdf")
-)
-p7 <- all.plot$plot + ggtitle("Hypermethylated probes VS. hypomethylated probes") + ylim(0,60)
-p7 
-```
-
-
-```{R}
-
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-# ChroMHMM
-#-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
-ChmmModels <- readr::read_tsv("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed",col_names = FALSE)
-colnames(ChmmModels) <- c("chr","start","end","state")
-states <- readr::read_csv("chromHMM_labels.csv",col_names = FALSE)
-states$X1 <- paste0("E",states$X1)  
-ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
-ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
-plot.chrm.hypo <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hypo,
-                                 bg.probes = cpg.df.probes,
-                                 annotation.gr = ChmmModels.gr,
-                                 fisher.test.alternative = "two.sided", 
-                                 bar.colors = c("black", "#5285f2"),
-                                 fg.label = paste0("hypomethylated probes (n = ",length(cpg.df.sig.probes.hypo),")"), 
-                                 bg.label = paste0("Evaluated probes (n = ",length(cpg.df.probes),")"), 
-                                 enrichment.type = "customized",
-                                 plot.filename =  paste0(dir.result.enrichment,"single_cpg_hypo_chromHMM_states.png")
-)
-
-plot.chrm.hyper <- cpGsEnrichment(fg.probes = cpg.df.sig.probes.hyper,
-                                  bg.probes = cpg.df.probes,
-                                  annotation.gr = ChmmModels.gr,
-                                  fisher.test.alternative = "two.sided", 
-                                  bar.colors = c("black","#A10036"),
-                                  fg.label = paste0("hypermethylated probes (n = ",length(cpg.df.sig.probes.hyper),")"), 
-                                  bg.label = paste0("Evaluated probes (n = ",length(cpg.df.probes),")"), 
-                                  enrichment.type = "customized",
-                                  plot.filename =  paste0(dir.result.enrichment,"single_cpg_hyper_chromHMM_states.png")
-)
-
-plot.chrm.sig <- cpGsEnrichment(fg.probes = cpg.df.sig.probes,
-                                bg.probes = cpg.df.probes,
-                                annotation.gr = ChmmModels.gr,
-                                fisher.test.alternative = "two.sided", 
-                                bar.colors = c("black","darkgreen"),
-                                fg.label = paste0("All sig. probes (n = ",length(cpg.df.sig.probes),")"), 
-                                bg.label = paste0("Evaluated probes (n = ",length(cpg.df.probes),")"), 
-                                enrichment.type = "customized",
-                                plot.filename =  paste0(dir.result.enrichment,"single_cpg_sig_chromHMM_states.png")
-)
-
-tab <- plot.chrm.hyper$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hyper sig. probes vs all probes",tab))
-
-tab <- plot.chrm.hypo$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hypo sig. probes vs all probes",tab))
-
-tab <- plot.chrm.sig$table
-colnames(tab)[1] <- "features"
-final.table <- bind_rows(final.table,
-                         cbind("Analysis" = "ChmmModels - Hypo/Hyper sig. probes vs all probes",tab))
-
-readr::write_csv(final.table,path = paste0(dir.result.enrichment,"single_cpg_enrichment_results_table.csv"))
-```
-
-
-```{R}
-library(patchwork)
-
-
-ggsave(
-  paste0(dir.result.enrichment,"/single_cpg_enrichment_Hypo_and_hyper.pdf"),
-  plot = (p1 | p2 ),
-  width = 14,
-  height = 5
-)
-
-ggsave(
-  paste0(dir.result.enrichment,"/single_cpg_enrichment_Hypo.pdf"),
-  plot = (p3 | p4 ),
-  width = 14,
-  height = 5
-)
-
-ggsave(
-  paste0(dir.result.enrichment,"/single_cpg_enrichment_Hyper.pdf"),
-  plot = (p5 | p6 ),
-  width = 14,
-  height = 5
-)
-
-all.p <- (p1 | p2 ) /
-  (p3 + ylim(0,65) | p4 ) /
-  (p5 | p6 ) /
-  p7 /
-  (plot.chrm.hypo$plot + ylim(0,35) | plot.chrm.hyper$plot + ylim(0,35)) /
-  plot.chrm.sig$plot + ylim(0,35)
-
-ggsave(
-  paste0(dir.result.enrichment,"/single_cpg_enrichment.pdf"),
-  plot = all.p,
-  width = 14,
-  height = 30
-)
-
+```{R,show = FALSE, fig.width = 5, fig.height= 5}
+ venn.diagram(
+  x = list(
+    probes.in.all.regions %>% unique ,    
+    single.cpg.results.probes %>% unique  
+  ), 
+  category.names = c("DMR analysis probes" , "Single cpg analysis probes" ),
+  filename = NULL,
+  output = TRUE ,
+  imagetype = "png" ,
+  height = 700 ,
+  width = 700 ,
+  resolution = 300,
+  compression = "lzw",
+  lwd = 1,
+  col = c("#440154ff", '#21908dff'),
+  fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
+  cex = 1,
+  cat.cex = 1,
+  cat.default.pos = "outer",
+  cat.pos = c(0, 180),
+  cat.dist = c(0.01, 0.01)
+) %>% grid.draw()
 ```
 
 # Session information
