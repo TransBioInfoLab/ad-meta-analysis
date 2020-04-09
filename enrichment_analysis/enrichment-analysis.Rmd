@@ -1005,10 +1005,15 @@ meta_sig_hypo_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_hypo_noCrossHyb_
 meta_all_gr <- RegionsToRanges(meta_all$inputRegion)
 ```
 
-```{R LOLA, results = "hide", message = FALSE}
+```{R load_db, eval = FALSE}
+library("RnBeads")
+dir <- downloadLolaDbs(".","LOLACore")
+```
+
+```{R LOLA_run, results = "hide", message = FALSE}
 library(LOLA)
 
-regionDB_hg19 <- loadRegionDB("../../cohorts_meta_analysis/LOLACore/hg19")
+regionDB_hg19 <- loadRegionDB("LOLACore/hg19")
 
 ### All sig. regions
 locResults <- runLOLA(
@@ -1043,7 +1048,7 @@ locResults   %>%
                 caption = "regions all LOLA results")
 ```
 
-```{R LOLA, results = "hide", message = FALSE}
+```{R LOLA_res, results = "hide", message = FALSE}
 ### All hyper regions
 locResults <- runLOLA(
   userSets = meta_sig_hyper_noCrossHyb_noSmoke_gr,
@@ -1077,7 +1082,7 @@ locResults   %>%
                 caption = "regions hyper LOLA results")
 ```
 
-```{R LOLA, results = "hide", message = FALSE}
+```{R LOLA_run2, results = "hide", message = FALSE}
 ### All hypo regions
 locResults <- runLOLA(
   userSets = meta_sig_hypo_noCrossHyb_noSmoke_gr,
@@ -1142,10 +1147,10 @@ cpg_sig_hypo_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
 cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
 ```
 
-```{R LOLA_single, results = "hide", message = FALSE}
+```{R LOLA_single_init, results = "hide", message = FALSE}
 library(LOLA)
 
-regionDB_hg19 <- loadRegionDB("../../cohorts_meta_analysis/LOLACore/hg19")
+regionDB_hg19 <- loadRegionDB("LOLACore/hg19")
 
 ### All sig. cpgs
 locResults <- runLOLA(
@@ -1181,7 +1186,7 @@ locResults   %>%
                 caption = "single cpg all LOLA results")
 ```
 
-```{R LOLA_single, results = "hide", message = FALSE}
+```{R LOLA_single_run, results = "hide", message = FALSE}
 
 ### All hyper cpgs
 locResults <- runLOLA(
@@ -1217,7 +1222,7 @@ locResults   %>%
                 caption = "single cpg hyper LOLA results")
 ```
 
-```{R LOLA_single, results = "hide", message = FALSE}
+```{R LOLA_single_res, results = "hide", message = FALSE}
 
 ### All hypo cpgs
 locResults <- runLOLA(
