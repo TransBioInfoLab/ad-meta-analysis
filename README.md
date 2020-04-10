@@ -8,9 +8,9 @@ Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt,
 
 ### Single cohort analysis
 
-This section includes scripts for cohort specific analysis. The association between CpG methylation levels and Braak stage was assessed using linear statistical models in each cohort. Given that methylation M-values (logit transformation of methylation beta values)  has better statistical properties (i.e. homoscedasticity) for linear regression models, we used the M-values as the outcome variable in our statistical models. We adjusted for potential confounding factors including age at death, sex, methylation slide effects, and proportion of different cell types in the samples estimated by the CETS R package. For ROSMAP cohort, we additionally included variable "batch" that was available in the dataset to adjust for technical batches occurred during data generation.    
+This section includes scripts for cohort specific analysis. The association between CpG methylation levels and Braak stage was assessed using linear statistical models in each cohort. We adjusted for potential confounding factors including age at death, sex, methylation slide effects, and proportion of different cell types in the samples estimated by the CETS R package. 
 
-Each of the files has the following structure:
+Each of the files has the following sections:
 
 1. Data retrieval 
 2. Data Pre-processing
@@ -28,11 +28,8 @@ Each of the files has the following structure:
 |----------------------|-------------|-------------| 
 | single_cohort_analysis/Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://www.dropbox.com/s/1nfwh6i73rq8836/Gasparoni.html?dl=0)|
 | single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/yd74s21mssbo0xq/London.html?dl=0)|
-| single_cohort_analysis/London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
 | single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/tnc12y3myfrx53w/MtSinai.html?dl=0)|
 | single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/8am2p72xlbn0kja/ROSMAP.html?dl=0)|
-| single_cohort_analysis/SanchexMut.Rmd       |   SanchexMut (Sanchez-Mut et al. 2016)| [Link to compiled report](https://www.dropbox.com/s/mzrb6vc0c7dmti1/SanchexMut.html?dl=0)|
-| single_cohort_analysis/Semick.Rmd           |   Semick (Semick et al. 2019)   | [Link to compiled report](https://www.dropbox.com/s/ubnede70grp5e9e/Semick.html?dl=0)|
 
 ### Meta-analysis 
 
@@ -73,7 +70,7 @@ The main regions/probe annotation used were:
 ### Matched Meta-analysis
 
 #### Description
-To prioritize methylation changes most likely to be affected by the AD pathogenesis process, we performed additional analysis using an alternative strategy to reduce confounding effects due to age. More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. The matched samples were analyzed in the same way as described above, except by removing age at death effect in the linear models. 
+To prioritize methylation changes most likely to be affected by the AD pathogenesis process, we performed additional analysis using a sample matching strategy to reduce confounding effects due to age. More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. The matched samples were then analyzed in the same way as described above, except by removing age at death effect in the linear models. 
 
 #### Files
 
@@ -91,6 +88,7 @@ Using the London cohort which consisted of 69 pairs of samples with matched PFC 
 #### Files
 | File                 |    HTML                  | 
 |----------------------|----------------------|
+| single_cohort_analysis/London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
 | cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/kswu3xa7lzk4g61/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
