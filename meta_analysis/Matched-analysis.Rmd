@@ -477,9 +477,9 @@ results_ordered_df
 ```
 
 
-## Gasparoni dataset
+```{R, eval = FALSE, include = FALSE}
 
-```{R, eval = FALSE}
+## Gasparoni dataset
 gasparoni <- pheno.ls$GASPARONI[, c("sample", "sex", "stage", "age.brain")]
 gasparoni <- gasparoni[, c("sample", "sex", "stage", "age.brain")]
 gasparoni$status <- ifelse(gasparoni$stage < 3, "Control", "Case")
@@ -545,19 +545,15 @@ saveRDS(
 
 ```
 
-### Samples
 
-```{R}
+
+```{R, eval= FALSE, include = FALSE}
+### Samples
 length(readRDS(paste0(dir.result, "Gasparoni_samples.RDS")))
 ```
 
-
-
+```{R gasparoni_DMR, eval = FALSE, include = FALSE}
 ### Linear model
-
-
-```{R gasparoni_DMR, eval = TRUE}
-
 ### Import datasets
 cohort <- "Gasparoni"
 pheno <- "pheno"
@@ -593,7 +589,7 @@ pheno_df$slide <- as.factor(pheno_df$slide)
 # If rosmap cohort, don't forget batch effect
 ```
 
-```{R, eval = FALSE}
+```{R, eval = FALSE, include = FALSE}
 devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
 predictors_char <- "stage"
 covariates_char <- c("sex", "prop.neuron", "slide")
@@ -622,9 +618,9 @@ saveRDS(
 
 ```
 
+```{R gasparoni_singleCpG, eval = FALSE, include = FALSE}
 ### Single cpg linear model 
 
-```{R gasparoni_singleCpG, eval = TRUE}
 ### Import datasets
 beta_mat <- readRDS(
   "DATASETS/GASPARONI/step7_pca_filtering/Gasparoni_QNBMIQ_PCfiltered.RDS"
@@ -659,7 +655,7 @@ is(pheno_df$prop.neuron,"numeric")
 ```
 
 
-```{R, eval = FALSE}
+```{R, eval = FALSE, include = FALSE}
 predictors_char <- "stage"
 covariates_char <- c("sex", "prop.neuron", "slide")
 
@@ -908,15 +904,7 @@ results_ordered_df
 ```
 
 
-# Meta-analysis Regions
-
-1. select the most significant cluster for each input region
-2. merge cohorts
-3. meta analysis
-4. add annotation
-5. Delete sig DMRs with cross-hybridizing or smoking probes 
-6. Compare with sig DMRs from main analysis 
-
+# Meta-analysis of Genomic Regions
 
 ## Import datasets and pre-process for each cohort 
 
@@ -1080,13 +1068,15 @@ write.csv(
 
 ```
 
-## Overlap with comb-p DMRs 
+ 
 
 ```{R eval = FALSE}
 library(GenomicRanges)
 ```
 
-```{R eval = FALSE}
+```{R, eval = FALSE, include = FALSE}
+
+## Overlap with comb-p DMRs
 matched_dmrs <- read.csv(
   paste0(dir.result, "meta_analysis_matched_sig_df.csv")
 )
