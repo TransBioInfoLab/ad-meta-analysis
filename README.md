@@ -8,7 +8,7 @@ Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt,
 
 ### Single cohort analysis
 
-This section includes scripts for cohort specific analysis. The association between CpG methylation levels and Braak stage was assessed using linear statistical models in each cohort. We adjusted for potential confounding factors including age at death, sex, methylation slide effects, and proportion of different cell types in the samples estimated by the CETS R package. 
+This section includes scripts for cohort specific analysis. The association between CpG methylation levels and Braak stage was assessed using linear statistical models for each cohort. We adjusted for potential confounding factors including age at death, sex, batch effects, and proportion of different cell types in the samples estimated by the CETS R package. 
 
 Each of the files has the following sections:
 
