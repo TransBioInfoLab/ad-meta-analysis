@@ -102,7 +102,7 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 #### Files
 | File                 |                      | 
 |----------------------|----------------------|
-| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/wo7rn5177g3lgkn/code.html?dl=0)|
+| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/owyrtd6brly6g7f/DMR_gene_expression_analysis.html?dl=0)|
 
 
 
