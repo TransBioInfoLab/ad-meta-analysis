@@ -76,7 +76,7 @@ To prioritize methylation changes most likely to be affected by the AD pathogene
 
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/1q3srp6g40r9817/Matched-analysis.html?dl=0)|
+| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/zl0lavf5njx27t1/Matched-analysis.html?dl=0)|
 
 ### Correlation of methylation changes in brain and blood samples
 
@@ -89,7 +89,7 @@ Using the London cohort which consisted of 69 pairs of samples with matched PFC 
 | File                 |    HTML                  | 
 |----------------------|----------------------|
 | single_cohort_analysis/London_blood.Rmd     |   London (Lunnon, 2014)     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
-| cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/kswu3xa7lzk4g61/London_blood_brain_correlation.html?dl=0)|
+| cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/ske24n7nt7lcplw/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
 
