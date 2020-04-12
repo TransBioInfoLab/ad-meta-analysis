@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
     toc: true
     number_sections: true
     df_print: paged
@@ -43,10 +42,19 @@ devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d
 ```
 
 ```{R}
-files <- dir(pattern = paste0(".*neuro"),
-             recursive = T,
+files <- dir(path = "DATASETS",
+             pattern = paste0(".*neuro"),
+             recursive = TRUE,
              full.names = TRUE,
-             ignore.case = T)
+             ignore.case = TRUE)
+```
+
+```{R, echo = FALSE}
+files <- files[c(1,2,4,5)]
+```
+
+```{R}
+files
 pheno.ls <- lapply(files, function (f){
   readRDS(f)
 })
@@ -256,9 +264,11 @@ write.csv(
 
 ```{R}
 results_ordered_df <- readr::read_csv(
-  paste0(dir.result, "ROSMAP_matched_single_cpg_linear_df.csv")
+  paste0(dir.result, "ROSMAP_matched_single_cpg_linear_df.csv"),
+  col_types = readr::cols()
 )
-results_ordered_df
+dim(results_ordered_df)
+results_ordered_df %>% head
 ```
 
 
@@ -350,7 +360,7 @@ mediansMval_df <- readRDS(
   dir("DATASETS/LONDON/",pattern = "medians",recursive = TRUE,full.names = TRUE)
 )
 pheno_df <- readRDS(
-  dir("DATASETS/LONDON/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+  dir("DATASETS/LONDON/",pattern = "NeuronProp_df",recursive = TRUE,full.names = TRUE)
 )
 samples <- readRDS(
   paste0(dir.result, "London_samples.RDS")
@@ -410,7 +420,7 @@ beta_mat <- readRDS(
   "DATASETS/LONDON/step5_pca_filtering/London_PFC_QNBMIQ_PCfiltered.RDS"
 ) 
 pheno_df <- readRDS(
-  dir("DATASETS/LONDON/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+  dir("DATASETS/LONDON/",pattern = "NeuronProp_df",recursive = TRUE,full.names = TRUE)
 )
 samples <- readRDS(
   paste0(dir.result, "London_samples.RDS")
@@ -471,9 +481,11 @@ write.csv(
 
 ```{R}
 results_ordered_df <- readr::read_csv(
-  paste0(dir.result, "London_matched_single_cpg_linear_df.csv")
+  paste0(dir.result, "London_matched_single_cpg_linear_df.csv"),
+  col_types = readr::cols()
 )
-results_ordered_df
+dim(results_ordered_df)
+results_ordered_df %>% head
 ```
 
 
@@ -687,9 +699,11 @@ write.csv(
 ```
 ```{R}
 results_ordered_df <- readr::read_csv(
-  paste0(dir.result, "Gasparoni_matched_single_cpg_linear_df.csv")
+  paste0(dir.result, "Gasparoni_matched_single_cpg_linear_df.csv"),
+  col_types = readr::cols()
 )
-results_ordered_df
+dim(results_ordered_df)
+results_ordered_df %>% head
 ```
 
 
@@ -898,9 +912,11 @@ write.csv(
 ```
 ```{R}
 results_ordered_df <- readr::read_csv(
-  paste0(dir.result, "MtSinai_matched_single_cpg_linear_df.csv")
+  paste0(dir.result, "MtSinai_matched_single_cpg_linear_df.csv"),
+  col_types = readr::cols()
 )
-results_ordered_df
+dim(results_ordered_df)
+results_ordered_df %>% head
 ```
 
 
@@ -934,9 +950,6 @@ preMeta <- function(cohort){
   data.frame(result_sig, stringsAsFactors = FALSE)
 }
 
-Gasparoni <- preMeta(cohort = "Gasparoni") 
-dim(Gasparoni)
-
 London_PFC <- preMeta(cohort = "London")
 dim(London_PFC)
 
@@ -953,7 +966,6 @@ dim(ROSMAP)
 ```{R, eval = FALSE}
 ### merge datasets
 cohort_ls <- list(
-  Gasparoni = Gasparoni,
   London_PFC = London_PFC,
   MtSinai = MtSinai,
   ROSMAP = ROSMAP
@@ -1068,7 +1080,7 @@ write.csv(
 
 ```
 
- 
+
 
 ```{R eval = FALSE}
 library(GenomicRanges)
@@ -1182,15 +1194,24 @@ extractCrosHybridization <- function(probes.list){
 
 Gasparoni_crossHyb_df <- extractCrosHybridization(cometh.probes.list$GASPARONI)
 colnames(Gasparoni_crossHyb_df) <- paste0("GASPARONI_",colnames(Gasparoni_crossHyb_df))
-plyr::count(Gasparoni_crossHyb_df, vars = grep("_bi",colnames(Gasparoni_crossHyb_df),value = TRUE))
+plyr::count(
+  Gasparoni_crossHyb_df, 
+  vars = grep("_bi",colnames(Gasparoni_crossHyb_df),value = TRUE)
+)
 
 London_PFC_crossHyb_df <- extractCrosHybridization(cometh.probes.list$LONDON)
 colnames(London_PFC_crossHyb_df) <- paste0("London_",colnames(London_PFC_crossHyb_df))
-plyr::count(London_PFC_crossHyb_df, vars = grep("_bi",colnames(London_PFC_crossHyb_df),value = TRUE))
+plyr::count(
+  London_PFC_crossHyb_df, 
+  vars = grep("_bi",colnames(London_PFC_crossHyb_df),value = TRUE)
+)
 
 MtSinai_crossHyb_df <- extractCrosHybridization(cometh.probes.list$MtSinai)
 colnames(MtSinai_crossHyb_df) <- paste0("MtSinai_",colnames(MtSinai_crossHyb_df))
-plyr::count(MtSinai_crossHyb_df, vars = grep("_bi",colnames(MtSinai_crossHyb_df),value = TRUE))
+plyr::count(
+  MtSinai_crossHyb_df, 
+  vars = grep("_bi",colnames(MtSinai_crossHyb_df),value = TRUE)
+)
 
 ROSMAP_crossHyb_df <- extractCrosHybridization(cometh.probes.list$ROSMAP)
 colnames(ROSMAP_crossHyb_df) <- paste0("ROSMAP_",colnames(ROSMAP_crossHyb_df))
@@ -1210,8 +1231,7 @@ meta_all_final$smoke_bi <- rowSums(meta_all_final[,grep("smoke_bi",colnames(meta
 # Cluster columns of the projects together
 meta_all_final <- meta_all_final[
   order(meta_all_final$fdr),
-  c(
-    grep("Gasparoni|MtSinai|London|ROSMAP",colnames(meta_all_final),ignore.case = TRUE,invert = TRUE),
+  c(grep("Gasparoni|MtSinai|London|ROSMAP",colnames(meta_all_final),ignore.case = TRUE,invert = TRUE),
     grep("Gasparoni",colnames(meta_all_final),ignore.case = TRUE),
     grep("MtSinai",colnames(meta_all_final),ignore.case = TRUE),
     grep("London",colnames(meta_all_final),ignore.case = TRUE),
@@ -1224,13 +1244,23 @@ meta_sig_final <- meta_all_final[
   meta_all_final$crossHyb_bi == 0 &
     meta_all_final$smoke_bi == 0,
   ] #dim: 83 59
-
 ### Save
 write.csv(
   meta_sig_final %>% as.data.frame,
   paste0(dir.result, "meta_analysis_matched_sig_no_crossHyb_smoking_df.csv"),
   row.names = FALSE
 )
+```
+
+## Results
+
+```{R, echo = FALSE}
+res <- readr::read_csv(
+  paste0(dir.result, "meta_analysis_matched_sig_no_crossHyb_smoking_df.csv"),
+  col_types = readr::cols()
+) 
+res <- res[order(res$fdr),]
+res
 ```
 
 ## Compare with sig DMRs from main analysis
@@ -1277,10 +1307,10 @@ cols = gg_color_hue(n)
 
 ranges.list <- list(main_dmrs_gr, matched_dmrs_gr)
 
-pdf(
-  file = paste0(dir.result,"venn_main_matched_sig_DMRs.pdf"),
-  width = 5, height = 5
-)
+# pdf(
+#  file = paste0(dir.result,"venn_main_matched_sig_DMRs.pdf"),
+#  width = 5, height = 5
+#)
 makeVennDiagram(
   ranges.list,
   NameOfPeaks = methodsLabel[1:n],
@@ -1297,7 +1327,7 @@ makeVennDiagram(
   cat.dist = c(-0.055, -0.055),
   cat.fontfamily = "sans",
   cat.col = c("#440154ff", '#21908dff'))
-dev.off()
+# dev.off()
 ```
 
 
@@ -1497,12 +1527,22 @@ result_final <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df)
 result_final_ordered <- result_final[
   ,c(1:4, 26:29, 5:24)
   ]
-
 write.csv(
   result_final_ordered %>% as.data.frame(),
   paste0(dir.result, "meta_analysis_matched_single_cpg_sig_no_crossHyb_smoking_df.csv"),
   row.names = FALSE
 )           
+```
+
+## Results
+
+```{R, echo = FALSE}
+res <- readr::read_csv(
+  paste0(dir.result, "meta_analysis_matched_single_cpg_sig_no_crossHyb_smoking_df.csv"),
+  col_types = readr::cols()
+) 
+res <- res[order(res$fdr),]
+res
 ```
 
 ## Compare with sig CpGs from main analysis
