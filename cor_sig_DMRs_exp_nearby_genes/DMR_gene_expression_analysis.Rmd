@@ -53,11 +53,11 @@ suppressMessages({
 
 - DNAm data – in file 'ROSMAP_QNBMIQ_PCfiltered.RDS' 
 - RNAseq data – in files:
-- 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
-- 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'  
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'  
 - Link for IDs – in file "ROSMAP_IDkey"
-- column "mwas_id" is for DNAm data 
-- column "rnaseq_id" is for rnaseq
+  - column "mwas_id" is for DNAm data 
+  - column "rnaseq_id" is for rnaseq
 - Phenotype data:  pheno_withNeuronProp_df.RDS
 
 ## Code to get matched data
