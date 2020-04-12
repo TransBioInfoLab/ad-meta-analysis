@@ -42,6 +42,7 @@ dir.result.cpg.vs.dmr <- file.path(dir.result, "step4_dmr_vs_cpgs/")
 dir.result.lola <- file.path(dir.result, "step5_lola/")
 dir.result.enrichment <- file.path(dir.result, "step6_enrichment/")
 dir.result.pathway <- file.path(dir.result, "step7_pathway/")
+data.final <- "meta_analysis_single_cpg_results/"
 for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
 ```
 
@@ -511,7 +512,6 @@ dev.off()
 
 ```{R, eval = FALSE}
 library(dplyr)
-data.final <- "meta_analysis_single_cpg_results/"
 dir.create(data.final,recursive = TRUE,showWarnings = FALSE)
 results.files <- dir("DATASETS/",
                      pattern = "single_cpg_pVal_df.csv",
@@ -623,7 +623,7 @@ result_annot_df <- merge(
 colnames(result_annot_df)[1] <- "cpg"
 ### final raw data
 write.csv(
-    result_annot_df  %>% as.data.frame(),
+  result_annot_df  %>% as.data.frame(),
   paste0(data.final, "meta_analysis_single_cpg_df.csv"),
   row.names = FALSE
 )
@@ -736,6 +736,12 @@ write.csv(
 
 ```
 
+```{R}
+readr::read_csv(
+  paste0(data.final, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"),
+  col_types = readr::cols()
+)
+```
 
 # Results from single CPG analysis and DMR analysis
 
@@ -772,6 +778,13 @@ write.csv(
   overlapping.results %>% dplyr::filter(smoke_bi == 0 & crossHyb_bi == 0),
   paste0(dir.result.cpg.vs.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"),
   row.names = FALSE
+)
+```
+
+```{R}
+readr::read_csv(
+  paste0(dir.result.cpg.vs.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"),
+  col_types = readr::cols()
 )
 ```
 
