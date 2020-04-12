@@ -269,12 +269,47 @@ single.cpg.plot$plot
 
 # Pathway analysis 
 
-
-### Pathway analysis (gene ontology analysis)
-
 ## For regions + single cpgs
 
 ### Get probes
+
+### Get probes from regions
+```{R}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp,pattern = "no.*csv",full.names = TRUE))
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+```{R}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "450k",
+                                                      clusterType = "regions")
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig$inputRegion
+
+meta_sig_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes)
+
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
 
 ```{R}
 all.foreground.probes <- c(meta_sig_probes, foreground.probes) %>% unique  
@@ -304,7 +339,7 @@ out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
                           array.type = "450K")
 sorted.eg.sig <-  out$sig.eg
 gene.info <- TCGAbiolinks::get.GRCh.bioMart()
-all_go$de_genes <- plyr::aaply(rownames(meta_go),1,.fun = function(idx){
+all_go$de_genes <- plyr::aaply(rownames(all_go),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
 })
@@ -321,42 +356,15 @@ write.csv(
 
 all_go_ordered.bp <- all_go_ordered %>%
   tibble::rownames_to_column("GO") %>%  # keep row names
-  dplyr::filter(ONTOLOGY == "BP" & N >= 5 & N <= 200) %>%
+  dplyr::filter(ONTOLOGY == "BP") %>%
   tibble::column_to_rownames("GO")   # keep row names
 all_go_ordered.bp$FDR <- p.adjust(all_go_ordered.bp$P.DE,"fdr")
+```
 
-
-
+```{R,eval = FALSE}
 write.csv(
   all_go_ordered.bp,
   paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
-  row.names = TRUE
-)
-
-all_go_ordered.mf <- all_go_ordered %>%
-  tibble::rownames_to_column("GO") %>%  # keep row names
-  dplyr::filter(ONTOLOGY == "MF" & N >= 5 & N <= 200) %>%
-  tibble::column_to_rownames("GO")   # keep row names
-all_go_ordered.mf$FDR <- p.adjust(all_go_ordered.mf$P.DE,"fdr")
-
-
-
-write.csv(
-  all_go_ordered.mf,
-  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_MF_N_range_5_200_fdr_recalc.csv"),
-  row.names = TRUE
-)
-
-
-all_go_ordered.cc <- all_go_ordered %>%
-  tibble::rownames_to_column("GO") %>%  # keep row names
-  dplyr::filter(ONTOLOGY == "CC" & N >= 5 & N <= 200) %>%
-  tibble::column_to_rownames("GO")   # keep row names
-all_go_ordered.cc$FDR <- p.adjust(all_go_ordered.cc$P.DE,"fdr")
-
-write.csv(
-  all_go_ordered.cc,
-  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_CC_N_range_5_200_fdr_recalc.csv"),
   row.names = TRUE
 )
 ```
@@ -374,32 +382,6 @@ all_go_ordered.bp  %>%
                                pageLength = 10), 
                 rownames = FALSE,
                 caption = "GO results BP (FDR < 0.05)")
-
-all_go_ordered.mf  %>% 
-  dplyr::filter(FDR < 0.05) %>%
-  DT::datatable(filter = 'top',
-                style = "bootstrap",
-                extensions = 'Buttons',
-                options = list(scrollX = TRUE, 
-                               dom = 'Bfrtip',
-                               buttons = I('colvis'),
-                               keys = TRUE, 
-                               pageLength = 10), 
-                rownames = FALSE,
-                caption = "GO results MF (FDR < 0.05)")
-
-all_go_ordered.cc  %>% 
-  dplyr::filter(FDR < 0.05) %>%
-  DT::datatable(filter = 'top',
-                style = "bootstrap",
-                extensions = 'Buttons',
-                options = list(scrollX = TRUE, 
-                               dom = 'Bfrtip',
-                               buttons = I('colvis'),
-                               keys = TRUE, 
-                               pageLength = 10), 
-                rownames = FALSE,
-                caption = "GO results CC (FDR < 0.05)")
 ```
 
 ```{R kegg_regions_cpgs}
@@ -418,7 +400,7 @@ out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
                           array.type = "450K")
 sorted.eg.sig <- out$sig.eg
 gene.info <- TCGAbiolinks::get.GRCh.bioMart()
-all_kegg$de_genes <- plyr::aaply(rownames(meta_kegg),1,.fun = function(idx){
+all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
 })
@@ -436,9 +418,12 @@ write.csv(
 
 all_kegg_ordered <- all_kegg_ordered %>%
   tibble::rownames_to_column("KEGG") %>%  # keep row names
-  dplyr::filter(N >= 5 & N <= 200) %>%
   tibble::column_to_rownames("KEGG")      # keep row names
 all_kegg_ordered$FDR <- p.adjust(all_kegg_ordered$P.DE,"fdr")
+```
+
+
+```{R, eval = FALSE}
 write.csv(
   all_kegg_ordered,
   paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_N_range_5_200_fdr_recalc.csv"),
@@ -465,143 +450,6 @@ all_kegg_ordered  %>%
 
 
 # LOLA: Locus overlap analysis for enrichment of genomic ranges
-
-## For regions
-
-```{R LOLA, results = "hide", message = FALSE}
-### Call in datasets
-meta_sig_noCrossHyb_noSmoke <- read.csv(
-  paste0(dir.result.comp, "meta_analysis_no_crossHyb_smoking_ov_comb_p.csv"),
-) #dim: 119 59
-
-meta_all <- read.csv(
-  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
-) #dim: 40010 41
-
-meta_sig_hyper_noCrossHyb_noSmoke <- meta_sig_noCrossHyb_noSmoke %>%
-    filter(estimate > 0)
-
-meta_sig_hypo_noCrossHyb_noSmoke <- meta_sig_noCrossHyb_noSmoke %>%
-    filter(estimate < 0)
-
-### Turn input regions into GRanges
-library(coMethDMR)
-meta_sig_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_noCrossHyb_noSmoke$inputRegion)
-meta_sig_hyper_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_hyper_noCrossHyb_noSmoke$inputRegion)
-meta_sig_hypo_noCrossHyb_noSmoke_gr <- RegionsToRanges(meta_sig_hypo_noCrossHyb_noSmoke$inputRegion)
-meta_all_gr <- RegionsToRanges(meta_all$inputRegion)
-```
-
-```{R load_db, eval = FALSE}
-library("RnBeads")
-dir <- downloadLolaDbs(".","LOLACore")
-```
-
-```{R LOLA_run, results = "hide", message = FALSE}
-library(LOLA)
-
-regionDB_hg19 <- loadRegionDB("LOLACore/hg19")
-
-### All sig. regions
-locResults <- runLOLA(
-  userSets = meta_sig_noCrossHyb_noSmoke_gr,
-  userUniverse = meta_all_gr,
-  regionDB = regionDB_hg19,
-  cores = 1
-)
-locResults$pValue <- 10^(-locResults$pValueLog)
-locResults_ordered <- locResults[
-  ,c(1:3, 24, 4:23)
-]                                                  
-write.csv(
-  locResults_ordered,                              
-  paste0(dir.result.lola, "regions_all_LOLA_results.csv"),
-  row.names = FALSE
-)
-```
-
-```{R}
-locResults   %>% 
-  dplyr::filter(qValue < 0.05) %>%
-  DT::datatable(filter = 'top',
-                style = "bootstrap",
-                extensions = 'Buttons',
-                options = list(scrollX = TRUE, 
-                               dom = 'Bfrtip',
-                               buttons = I('colvis'),
-                               keys = TRUE, 
-                               pageLength = 10), 
-                rownames = FALSE,
-                caption = "regions all LOLA results")
-```
-
-```{R LOLA_res, results = "hide", message = FALSE}
-### All hyper regions
-locResults <- runLOLA(
-  userSets = meta_sig_hyper_noCrossHyb_noSmoke_gr,
-  userUniverse = meta_all_gr,
-  regionDB = regionDB_hg19,
-  cores = 1
-)
-locResults$pValue <- 10^(-locResults$pValueLog)
-locResults_ordered <- locResults[
-  ,c(1:3, 24, 4:23)
-]                                                  
-write.csv(
-  locResults_ordered,                              
-  paste0(dir.result.lola, "regions_hyper_LOLA_results.csv"),
-  row.names = FALSE
-)
-```
-
-```{R}
-locResults   %>% 
-  dplyr::filter(qValue < 0.05) %>%
-  DT::datatable(filter = 'top',
-                style = "bootstrap",
-                extensions = 'Buttons',
-                options = list(scrollX = TRUE, 
-                               dom = 'Bfrtip',
-                               buttons = I('colvis'),
-                               keys = TRUE, 
-                               pageLength = 10), 
-                rownames = FALSE,
-                caption = "regions hyper LOLA results")
-```
-
-```{R LOLA_run2, results = "hide", message = FALSE}
-### All hypo regions
-locResults <- runLOLA(
-  userSets = meta_sig_hypo_noCrossHyb_noSmoke_gr,
-  userUniverse = meta_all_gr,
-  regionDB = regionDB_hg19,
-  cores = 1
-)
-locResults$pValue <- 10^(-locResults$pValueLog)
-locResults_ordered <- locResults[
-  ,c(1:3, 24, 4:23)
-]                                                  
-write.csv(
-  locResults_ordered,                              
-  paste0(dir.result.lola, "regions_hypo_LOLA_results.csv"),
-  row.names = FALSE
-)
-```
-
-```{R}
-locResults   %>% 
-  dplyr::filter(qValue < 0.05) %>%
-  DT::datatable(filter = 'top',
-                style = "bootstrap",
-                extensions = 'Buttons',
-                options = list(scrollX = TRUE, 
-                               dom = 'Bfrtip',
-                               buttons = I('colvis'),
-                               keys = TRUE, 
-                               pageLength = 10), 
-                rownames = FALSE,
-                caption = "regions hypo LOLA results")
-```
 
 ## For single cpg 
 
@@ -660,7 +508,7 @@ write.csv(
 
 ```{R}
 locResults   %>%
-  dplyr::filter(qValue < 0.05) %>%
+  dplyr::filter(qValue < 0.05 & collection == "encode_tfbs") %>%
   DT::datatable(filter = 'top',
                 style = "bootstrap",
                 extensions = 'Buttons',
