@@ -139,7 +139,7 @@ recent AD meta-analysis102 (PMID: 30820047), using one-sided Fisher’s test.
 
 | File                 |                      | 
 |----------------------|----------------------|
-|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://www.dropbox.com/s/pyxbxx7onmploa8/overlap_genetic_susceptibility_loci.html?dl=0)|
+|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://www.dropbox.com/s/inw9kp5ewo4jdad/overlap_genetic_susceptibility_loci.html?dl=0)|
 
 
 
