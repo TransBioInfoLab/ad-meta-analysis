@@ -32,10 +32,12 @@ setwd(file.path(pathDropbox,"coMethDMR_metaAnalysis/overlapWithDNA"))
 
 # Singel CpG analysis
 
-## Find overlap of significant CpGs with +500kb LD regions
+## Find overlap of significant CpGs with GWAS loci in Kunkle et al. (2019) 
 
 ```{R}
 SNPregions <- read.csv("AD_SNPregions.csv")
+SNPregions <- subset (SNPregions, select = -c(LDchr500,	LDstart500kb,	LDend500kb) )
+
 sigCpGs <- read.csv("AD_sigCpGs.csv")
 
 
