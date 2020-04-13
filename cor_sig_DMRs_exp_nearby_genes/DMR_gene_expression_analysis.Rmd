@@ -278,28 +278,13 @@ tab <- plyr::adply(
       colnames(results.control.pval) <- paste0("control_pval_", colnames(results.control.pval))
       colnames(results.control.estimate) <- paste0("control_estimate_", colnames(results.control.estimate))
       
-      # (3) fit linear model to all samples:
-      
-      #  RNA_residuals ~ DNAm_residuals + group + group x DNAm_residuals
-      # where group = case/control status
-      results.all <- lm (
-        rna.residual ~ met.residual + group + group * met.residual,
-        data = df
-      )
-      results.all.pval <- summary(results.all)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
-      results.all.estimate <-  summary(results.all)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
-      colnames(results.all.pval) <- paste0("all_pval_", colnames(results.all.pval))
-      colnames(results.all.estimate) <- paste0("all_estimate_", colnames(results.all.estimate))
-      
       return(
         data.frame(
           cbind(
             results.cases.pval,
             results.cases.estimate,
             results.control.pval,
-            results.control.estimate,
-            results.all.pval,
-            results.all.estimate
+            results.control.estimate
           ),
           row.names = NULL,
           stringsAsFactors = FALSE
@@ -428,27 +413,6 @@ plotTargetDNAm <- function(row){
   )
   
   
-  table.plot4a <- row[,grep("all_estimate",colnames(row),value = T)] %>% 
-    t() %>% 
-    as_tibble(rownames = "Variable")
-  
-  colnames(table.plot4a)[2] <- "Estimate"
-  table.plot4a$Variable <- gsub("all_estimate_","",table.plot4a$Variable)
-  
-  table.plot4b <- row[,grep("all_pval",colnames(row),value = T)] %>% 
-    t() %>% 
-    as_tibble(rownames = "Variable")
-  
-  table.plot4b$Variable <- gsub("all_pval_","",table.plot4b$Variable)
-  colnames(table.plot4b)[2] <- "P-value"
-  table.plot4 <- merge(table.plot4a,table.plot4b, by = "Variable",sort = FALSE)
-  
-  table.plot4 <- ggtexttable(table.plot4,
-                             rows = NULL, 
-                             cols = c("DNAm vs Target\n  Cases and controls","Estimate","P-Values"),
-                             theme = ttheme("mOrange", base_size = base_size)
-  )
-  
   # Arrange the plots on the same page
   plot.table <- ggarrange(
     ggarrange(table.plot1,
@@ -456,8 +420,7 @@ plotTargetDNAm <- function(row){
               ncol = 2),
     ggarrange(
       table.plot3,
-      table.plot4,
-      ncol = 2),
+      ncol = 1),
     ggarrange(dnam.target.plot,
               ncol = 1),
     nrow = 3,
@@ -538,8 +501,7 @@ tab$fdr.cases <- p.adjust(tab$cases_pval_met.residual,method = "fdr")
 
 output <- tab[,c("regionID","gene_external_gene_name",
                  "cases_estimate_met.residual","cases_pval_met.residual","fdr.cases",
-                 "control_estimate_met.residual","control_pval_met.residual","fdr.controls",
-                 "all_estimate_met.residual.groupControl","all_pval_met.residual.groupControl")] 
+                 "control_estimate_met.residual","control_pval_met.residual","fdr.controls")] 
 colnames(output) <- c("coMethDMR",
                       "geneSymbol",
                       "estimate.cases",
@@ -547,10 +509,7 @@ colnames(output) <- c("coMethDMR",
                       "fdr.cases",
                       "estimate.controls",
                       "pval.controls",
-                      "fdr.controls",
-                      "estimate.intxn",
-                      "pval.intxn"
-)
+                      "fdr.controls")
 
 
 cols <- c(grep("ROSMAP_coMethRegion",colnames(region.analysis)),
@@ -560,10 +519,14 @@ output2 <- merge(output,
                  by.x = "coMethDMR", 
                  by.y = "ROSMAP_coMethRegion",
                  all.x = TRUE)
+```
 
+```{R, eval = FALSE}
 write.csv(output2,file = "results/results_regions_lm_250kb_window_renamed.csv")
+```
 
-output %>% dplyr::filter(output$pval.intxn < 0.01 | output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
+```{R}
+output %>% dplyr::filter(output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
   DT::datatable(filter = 'top',
                 style = "bootstrap",
                 extensions = 'Buttons',
@@ -718,32 +681,13 @@ tab.cpg <- plyr::adply(
         paste0("control_estimate_", colnames(results.control.estimate))
       
       
-      # (3) fit linear model to all samples:
-      # RNA_residuals ~ DNAm_residuals + group + group x DNAm_residuals
-      # where group = case/control status
-      results.all <-
-        lm (
-          rna.residual ~ met.residual + group + group * met.residual,
-          data = df
-        )
-      results.all.pval <-
-        summary(results.all)$coefficients[-1, 4, drop = F] %>% t %>% as.data.frame()
-      results.all.estimate <-
-        summary(results.all)$coefficients[-1, 1, drop = F] %>% t %>% as.data.frame()
-      colnames(results.all.pval) <-
-        paste0("all_pval_", colnames(results.all.pval))
-      colnames(results.all.estimate) <-
-        paste0("all_estimate_", colnames(results.all.estimate))
-      
       return(
         data.frame(
           cbind(
             results.cases.pval,
             results.cases.estimate,
             results.control.pval,
-            results.control.estimate,
-            results.all.pval,
-            results.all.estimate
+            results.control.estimate
           ),
           row.names = NULL,
           stringsAsFactors = FALSE
@@ -868,23 +812,6 @@ plotTargetDNAm <- function(row){
   )
   
   
-  table.plot4a <- row[,grep("all_estimate",colnames(row),value = T)] %>% 
-    t() %>% 
-    as_tibble(rownames = "Variable")
-  colnames(table.plot4a)[2] <- "Estimate"
-  table.plot4a$Variable <- gsub("all_estimate_","",table.plot4a$Variable)
-  table.plot4b <- row[,grep("all_pval",colnames(row),value = T)] %>% 
-    t() %>% 
-    as_tibble(rownames = "Variable")
-  table.plot4b$Variable <- gsub("all_pval_","",table.plot4b$Variable)
-  colnames(table.plot4b)[2] <- "P-value"
-  table.plot4 <- merge(table.plot4a,table.plot4b, by = "Variable",sort = FALSE)
-  
-  table.plot4 <- ggtexttable(table.plot4,
-                             rows = NULL, 
-                             cols = c("DNAm vs Target\n  Cases and controls","Estimate","P-Values"),
-                             theme = ttheme("mOrange", base_size = base_size)
-  )
   
   # Arrange the plots on the same page
   plot.table <- ggarrange(
@@ -893,8 +820,7 @@ plotTargetDNAm <- function(row){
               ncol = 2),
     ggarrange(
       table.plot3,
-      table.plot4,
-      ncol = 2),
+      ncol = 1),
     ggarrange(dnam.target.plot,
               ncol = 1),
     nrow = 3,
@@ -971,8 +897,7 @@ tab.cpg$fdr.cases <- p.adjust(tab.cpg$cases_pval_met.residual,method = "fdr")
 
 output <- tab.cpg[,c("cpg","gene_external_gene_name",
                      "cases_estimate_met.residual","cases_pval_met.residual","fdr.cases",
-                     "control_estimate_met.residual","control_pval_met.residual","fdr.controls",
-                     "all_estimate_met.residual.groupControl","all_pval_met.residual.groupControl")] 
+                     "control_estimate_met.residual","control_pval_met.residual","fdr.controls")] 
 colnames(output) <- c("cpg",
                       "geneSymbol",
                       "estimate.cases",
@@ -980,14 +905,16 @@ colnames(output) <- c("cpg",
                       "fdr.cases",
                       "estimate.controls",
                       "pval.controls",
-                      "fdr.controls",
-                      "estimate.intxn",
-                      "pval.intxn"
+                      "fdr.controls"
 )
+```
+
+```{R, eval = FALSE}
 write.csv(output,file = "results/results_single_cpg_lm_250kb_window_renamed.csv")
+```
 
-
-output %>% dplyr::filter(output$pval.intxn < 0.01 | output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
+```{R}
+output %>% dplyr::filter(output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
   DT::datatable(filter = 'top',
                 style = "bootstrap",
                 extensions = 'Buttons',
