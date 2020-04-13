@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
     toc: true
     number_sections: true
     df_print: paged
@@ -151,12 +150,14 @@ pheno_df <- phenoPFC_df[, c(
 dim(pheno_df)
 ```
 
-```{R}
+```{R, eval = TRUE}
 ##### 2. Subset methylation data ###############################################
 
 ### Read in methylation data
 beta_mat <- readRDS(paste0(data.dir.raw, "GSE59685_assay.RDS")) #dim: 485577 531
+```
 
+```{R, eval = FALSE}
 ### Subset methylation data based on pheno data
 beta_mat <- beta_mat[, match(pheno_df$sample,colnames(beta_mat))] # dim: 485577 110
 
@@ -220,9 +221,7 @@ saveRDS(
 
 ## Samples QC
 
- 1. quantro test - decide if quantile normalization is needed
- 2. quantile normalization - box plots before and after sample QC
- 3. BMIQ - density plots before and after sampel QC
+- Quantile normalization and BMIQ normalization
 
  Input: 
  
@@ -232,77 +231,20 @@ saveRDS(
  
  Output: 
  
-- London_PFC_QNBMIQ.RDS,
-- boxplots before and after quantile normalization
-- denstity plots before and after quantile normalization and BMIQ
-
+- London_PFC_QNBMIQ.RDS
 
 
 ```{R}
-##### 1. Quantro test ##########################################################
 beta_mat <- readRDS(paste0(data.dir.probes.qc, "beta110_PFC_CG_XY_SNPfiltered_mat.RDS")) #dim: 437713 110
 pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_PFC_df.RDS")) #dim: 110 7
 nb.probes.cg.dmrcate <- nrow(beta_mat)
 ```
 
+
 ```{R, eval = FALSE}
-library(quantro)
-library(doParallel)
-cl <- makeCluster(15)
-registerDoParallel(cl)
-qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
-                     groupFactor = pheno_df$stage,
-                     B = 1000)
-stopCluster(cl)
-save(qtestPerm,file = file.path(data.dir.probes.normalization,"PFC_qtestPerm.rda"))
-```
-
-```{R, include = FALSE}
-load(file.path(data.dir.probes.normalization,"PFC_qtestPerm.rda"))
-```
-
-```{R}
-qtestPerm
-
-##### 2. Plot before normalization and BMIQ ####################################
-### Density plot
-matdensity(object = beta_mat,
-           groupFactor = pheno_df$stage %>% as.factor,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("stage ", levels(pheno_df$stage %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3)
-
-matboxplot(beta_mat,
-           groupFactor = pheno_df$stage,
-           xaxt = "n",
-           main = "Beta Values in London PFC cohort (autosomes) - before normalization")
-
-legend('bottom',
-       paste0("stage ",  levels(pheno_df$stage %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
-
 ##### 3. Quantile normalization ################################################
 library(lumi)
 betaQN <- lumiN(x.lumi = beta_mat, method = "quantile")
-
-dim(betaQN)
-#[1] 437713    110
-
-
-##### 4. Boxplot after normalization ###########################################
-
-# pheno_df$stage <- factor(pheno_df$stage)
-matboxplot(betaQN,
-           groupFactor = pheno_df$stage,
-           xaxt = "n",
-           main = "Beta Values in London PFC cohort (autosomes) - after normalization")
-
-legend('bottom',
-       paste0("stage ", levels(pheno_df$stage %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
 ```
 
 ```{R, message = FALSE, results = "hide"}
@@ -313,7 +255,7 @@ library(sesame)
 library(sesameData)
 ```
 
-```{R}
+```{R, eval = FALSE}
 ### Order annotation in the same order as beta matrix
 annotType <- sesameDataGet("HM450.hg19.manifest")
 annotType$designTypeNumeric <- ifelse(annotType$designType == "I",1,2)
@@ -353,21 +295,6 @@ betaQN_BMIQ <- readRDS(paste0(data.dir.probes.normalization, "London_PFC_QNBMIQ.
 ```
 
 
-```{R}
-##### 6. Density plot after normalization and BMIQ #############################
-# pheno_df$stage <- factor(pheno_df$stage)
-matdensity(object = betaQN_BMIQ,
-           groupFactor = pheno_df$stage,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("stage ", levels(pheno_df$stage %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3)
-
-```
-
-
 # Outliers detection - PCA analysis
 
 
@@ -385,7 +312,7 @@ Input:
 
 Output: 
 
-- PCs_usingBetas.csv, 
+- PCs_usingBetas.csv
 - PCA plots
 - QNBMIQ_PCfiltered.RDS
 - pheno_df.RDS
@@ -445,7 +372,6 @@ out3sdPC1_2 <- meanPC1 + 3*sdPC1
 
 out3sdPC2_1 <- meanPC2 - 3*sdPC2
 out3sdPC2_2 <- meanPC2 + 3*sdPC2
-
 
 d$outlier_PC1[d$PC1 >= out3sdPC1_1 & d$PC1 <= out3sdPC1_2] <- 0
 d$outlier_PC1[d$PC1 < out3sdPC1_1 | d$PC1 > out3sdPC1_2] <- 1
@@ -893,7 +819,7 @@ if(!file.exists(filename)){
 cohort <- "London"
 info_df <- readRDS(dir(data.dir.median,pattern = "info", full.names = TRUE))
 mediansMval_df <- readRDS(dir(data.dir.median,pattern = "mediansMval", full.names = TRUE))
-pheno_df <- readRDS(dir(data.dir.neuron, full.names = TRUE))
+pheno_df <- readRDS(dir(data.dir.neuron,pattern = "NeuronProp_df", full.names = TRUE))
 
 ### Check variables before fitting model
 pheno_df$Sample <- pheno_df$sample
