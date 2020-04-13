@@ -53,11 +53,11 @@ suppressMessages({
 
 - DNAm data – in file 'ROSMAP_QNBMIQ_PCfiltered.RDS' 
 - RNAseq data – in files:
-  - 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
-  - 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'  
+- 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
+- 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'  
 - Link for IDs – in file "ROSMAP_IDkey"
-  - column "mwas_id" is for DNAm data 
-  - column "rnaseq_id" is for rnaseq
+- column "mwas_id" is for DNAm data 
+- column "rnaseq_id" is for rnaseq
 - Phenotype data:  pheno_withNeuronProp_df.RDS
 
 ## Code to get matched data
@@ -925,6 +925,174 @@ output %>% dplyr::filter(output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %
                                pageLength = 10), 
                 rownames = FALSE,
                 caption = "Liner model Target/DNAm results - single cpg")
+```
+
+
+# Splitting results by group 
+
+## DMRs
+```{R}
+dmr <- read.csv(
+  "results/results_regions_lm_250kb_window_renamed.csv"
+)
+pathDropbox <- file.path(dir("~", pattern = "Dropbox", full.names = TRUE))
+dmr_meta <- read.csv(
+  file.path(pathDropbox,
+            "coMethDMR_metaAnalysis/",
+            "code_validation/Meta_analysis_code/meta_analysis_region_results",
+            "/step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_all.csv")
+)[, c("ROSMAP_coMethRegion",
+      "GREAT_annotation",
+      "UCSC_RefGene_Group",
+      "UCSC_RefGene_Accession",
+      "UCSC_RefGene_Name",
+      "state")
+  ]
+
+dmr.annot <- merge(
+  dmr, dmr_meta,
+  by.x = "coMethDMR",
+  by.y = "ROSMAP_coMethRegion",
+  sort = FALSE
+)
+
+dmr.annot <- dmr.annot[, c(1,3:9,21:24,10,25,11:18)]
+```
+
+```{R, eval = FALSE}
+write.csv(
+  dmr.annot,
+  "results_regions_lm_250kb_window_renamed_with_annot.csv"
+)
+```
+
+```{R}
+dmr_case <- dmr.annot %>%
+  group_by(coMethDMR) %>%
+  filter(pval.cases == min(pval.cases)) %>%
+  as.data.frame()
+
+dmr_case$fdr.cases.adjusted <- p.adjust(
+  dmr_case$pval.cases, method = "fdr"
+)
+
+dmr_case <- dmr_case[,c(1:5, 23,9:22)]
+dmr_case
+```
+
+```{R, eval = FALSE}
+write.csv(
+  dmr_case,
+  "results_regions_lm_250kb_window_renamed_mostSigCases.csv",
+  row.names = FALSE
+)
+```
+
+```{R}
+dmr_control <- dmr.annot %>%
+  group_by(coMethDMR) %>%
+  filter(pval.controls == min(pval.controls)) %>%
+  as.data.frame()
+dmr_control$fdr.controls.adjusted <- p.adjust(
+  dmr_control$pval.controls, method = "fdr"
+)
+dmr_control <- dmr_control[,c(1:2, 6:8, 23,9:22)]
+dmr_control
+```
+
+```{R, eval = FALSE}
+write.csv(
+  dmr_control,
+  "results_regions_lm_250kb_window_renamed_mostSigControls.csv",
+  row.names = FALSE
+)
+
+```
+
+## CpGs
+```{R}
+cpg <- read.csv(
+  "results/results_single_cpg_lm_250kb_window_renamed.csv"
+)
+cpg_meta <- read.csv(
+    file.path(pathDropbox,
+            "coMethDMR_metaAnalysis/",
+            "code_validation/Meta_analysis_code/meta_analysis_single_cpg_results/",
+            "/meta_analysis_single_cpg_sig_no_crossHyb_smoking_with_state_greatAnnot_df.csv")
+)[, c("cpg",
+      "GREAT_annotation",
+      "UCSC_RefGene_Group",
+      "UCSC_RefGene_Accession",
+      "UCSC_RefGene_Name",
+      "Relation_to_Island",
+      "state",
+      "estimate", 
+      "se", 
+      "pVal.fixed", 
+      "pVal.random",
+      "pValQ", 
+      "direction", 
+      "pVal.final", 
+      "fdr")
+  ]
+
+cpg.annot <- merge(
+  cpg, cpg_meta,
+  by = "cpg",
+  sort = FALSE
+) %>%
+  select(-X)
+cpg.annot
+```
+
+```{R, eval = FALSE}
+write.csv(
+  cpg.annot,
+  "results_single_cpg_lm_250kb_window_renamed_with_annot.csv"
+)
+```
+
+```{R}
+cpg_case <- cpg.annot %>%
+  group_by(cpg) %>%
+  filter(pval.cases == min(pval.cases)) %>%
+  as.data.frame()
+
+cpg_case$fdr.cases.adjusted <- p.adjust(
+  cpg_case$pval.cases, method = "fdr"
+)
+cpg_case <- cpg_case[, c(1:5, 25, 15,17:24)]
+cpg_case
+```
+
+```{R, eval = FALSE}
+write.csv(
+  cpg_case,
+  "results_single_cpg_lm_250kb_window_renamed_mostSigCases.csv",
+  row.names = FALSE
+)
+```
+
+```{R}
+cpg_control <- cpg.annot %>%
+  group_by(cpg) %>%
+  filter(pval.controls == min(pval.controls)) %>%
+  distinct(cpg, .keep_all = TRUE) %>%
+  as.data.frame()
+
+cpg_control$fdr.controls.adjusted <- p.adjust(
+  cpg_control$pval.controls, method = "fdr"
+)
+cpg_control <- cpg_control[, c(1:2,6:8, 25, 15, 17:24)]
+cpg_control
+```
+
+```{R, eval = FALSE}
+write.csv(
+  cpg_control,
+  "results_single_cpg_lm_250kb_window_renamed_mostSigControls.csv",
+  row.names = FALSE
+)
 ```
 
 
