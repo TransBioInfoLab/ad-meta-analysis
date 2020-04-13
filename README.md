@@ -128,7 +128,7 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 
 | File                 |                      | 
 |----------------------|----------------------|
-| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/8ob5lfbjchz0rdz/DMR_gene_expression_analysis.html?dl=0)|
+| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/y824xuk95pry78n/DMR_gene_expression_analysis.html?dl=0)|
 
 ### Overlap with genetic susceptibility loci
 
@@ -139,7 +139,7 @@ recent AD meta-analysis102 (PMID: 30820047), using one-sided Fisher’s test.
 
 | File                 |                      | 
 |----------------------|----------------------|
-|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://www.dropbox.com/s/8ob5lfbjchz0rdz/DMR_gene_expression_analysis.html?dl=0)|
+|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://www.dropbox.com/s/pyxbxx7onmploa8/overlap_genetic_susceptibility_loci.html?dl=0)|
 
 
 
