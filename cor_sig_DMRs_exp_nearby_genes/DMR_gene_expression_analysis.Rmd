@@ -64,9 +64,10 @@ suppressMessages({
 ```{R, code = readLines("data.R"),eval = FALSE}
 ```
 
-## Reading data created previously
 
 ```{R, fig.height = 6, include = FALSE, eval = FALSE}
+
+## Reading data created previously
 data.path <- "../code_validation/Meta_analysis_code/DATASETS/ROSMAP"
 load("data/matched_data.rda")
 dim(matched.dnam)
@@ -107,7 +108,7 @@ dim(dmr.hyper)
 
 ## Analysis: RNA vs DNAm
 
-For each region coMethylated region, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the 
+For each significant co-methylated region, we looked for genes within $250Kbp$, removed confounding effects in gene expression and DNA methylation levels, and then correlated DNAm with gene expression with the 
 following model, for cases and controls separately:
 
 $$rna_{residual} \sim met_{residual} $$
@@ -506,10 +507,9 @@ colnames(output) <- c("coMethDMR",
                       "geneSymbol",
                       "estimate.cases",
                       "pval.cases",
-                      "fdr.cases",
                       "estimate.controls",
-                      "pval.controls",
-                      "fdr.controls")
+                      "pval.controls"
+                      )
 
 
 cols <- c(grep("ROSMAP_coMethRegion",colnames(region.analysis)),
@@ -525,7 +525,7 @@ output2 <- merge(output,
 write.csv(output2,file = "results/results_regions_lm_250kb_window_renamed.csv")
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 output %>% dplyr::filter(output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
   DT::datatable(filter = 'top',
                 style = "bootstrap",
@@ -560,7 +560,7 @@ dim(dmc.hyper)
 
 ## Analysis: RNA vs DNAm
 
-For each CpG significantly associated with Braak stage, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the following model, for cases and controls separately:
+For each CpG significantly associated with Braak stage, we looked for genes within $250Kbp$, removed confounding effects in gene expression and DNA methylation levels, and then correlated residual methylation with gene expression levels with the following model, for cases and controls separately:
 
 $$rna_{residual} \sim met_{residual} $$
 
@@ -902,10 +902,8 @@ colnames(output) <- c("cpg",
                       "geneSymbol",
                       "estimate.cases",
                       "pval.cases",
-                      "fdr.cases",
                       "estimate.controls",
-                      "pval.controls",
-                      "fdr.controls"
+                      "pval.controls"
 )
 ```
 
@@ -913,7 +911,7 @@ colnames(output) <- c("cpg",
 write.csv(output,file = "results/results_single_cpg_lm_250kb_window_renamed.csv")
 ```
 
-```{R}
+```{R, eval = FALSE, include = FALSE}
 output %>% dplyr::filter(output$fdr.cases < 0.01 | output$fdr.controls < 0.01) %>%
   DT::datatable(filter = 'top',
                 style = "bootstrap",
