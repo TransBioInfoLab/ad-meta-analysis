@@ -38,137 +38,31 @@ setwd(file.path(pathDropbox,"coMethDMR_metaAnalysis/overlapWithDNA"))
 SNPregions <- read.csv("AD_SNPregions.csv")
 sigCpGs <- read.csv("AD_sigCpGs.csv")
 
-SNPregions500_ranges <- GRanges(
-    seqnames = SNPregions$LDchr500,
-    ranges = IRanges(SNPregions$LDstart500kb, SNPregions$LDend500kb)
+
+SNPregions_ranges <- GRanges(
+  seqnames = SNPregions$LDchr,
+  ranges = IRanges(SNPregions$LDstart, SNPregions$LDend)
 )
 
-sigCpGs_ranges <- GRanges(seqnames = sigCpGs$chr,
-                          ranges = IRanges(sigCpGs$start, sigCpGs$end)
+sigCpGs_ranges <- GRanges(
+  seqnames = sigCpGs$chr,
+  ranges = IRanges(sigCpGs$start, sigCpGs$end)
 )
 
-overlap500 <- findOverlaps(SNPregions500_ranges, sigCpGs_ranges)
-overlap500_df <- as.data.frame(overlap500)
+overlap <- findOverlaps(SNPregions_ranges, sigCpGs_ranges)
+overlap_df <- as.data.frame(overlap)
 
-SNPsOverlap <- SNPregions[overlap500_df$queryHits, ]
-sigCpGsOverlap <- sigCpGs[overlap500_df$subjectHits, ]
+SNPsOverlap <- SNPregions[overlap_df$queryHits,]
+sigCpGsOverlap <- sigCpGs[overlap_df$subjectHits,]
 
 SNPsigCpGsOverlap <- cbind(SNPsOverlap, sigCpGsOverlap)
+SNPsigCpGsOverlap
 ```
 
 ```{R, eval = FALSE}
 write.csv(SNPsigCpGsOverlap,
-          "AD_SNPs500Kb_sigCpGs_overlap.csv",
+          "AD_SNPs_sigCpGs_overlap.csv",
           row.names = FALSE)
-```
-
-## Find overlap of all CpGs with +500kb LD regions
-```{R}
-CpGsAll <- readr::read_csv(
-    file.path(
-        pathDropbox,
-        "coMethDMR_metaAnalysis/code_validation/Meta_analysis_code/",
-        "meta_analysis_single_cpg_results/meta_analysis_single_cpg_df.csv"
-    ),
-    col_types = readr::cols()
-)
-CpGsAll$chr <- gsub("chr", "", CpGsAll$seqnames)
-
-CpGsAll$ADregion <- ifelse(CpGsAll$cpg %in% SNPsigCpGsOverlap$cpg, 1, 0)
-
-CpGsAll_ranges <- GRanges(seqnames = CpGsAll$chr,
-                          ranges = IRanges(CpGsAll$start, CpGsAll$end))
-
-overlap500 <- findOverlaps(SNPregions500_ranges, CpGsAll_ranges)
-overlap500_df <- as.data.frame(overlap500)
-
-SNPsOverlap <- SNPregions[overlap500_df$queryHits, ]
-CpGsAllOverlap <- CpGsAll[overlap500_df$subjectHits, ]
-
-SNPsCpGsAllOverlap <- cbind(SNPsOverlap, CpGsAllOverlap)
-SNPsCpGsAllOverlap %>% filter(fdr < 0.05)
-```
-
-```{R, eval = FALSE}
-write.csv(SNPsCpGsAllOverlap,
-          "AD_SNPs500Kb_allCpGs_overlap.csv",
-          row.names = FALSE)
-```
-
-## Enrichment analysis: significant CpGs vs. all CpGs
-```{R}
-s <- subset(SNPsCpGsAllOverlap, ADregion == 0)
-length(unique(s$cpg)) ## 9329
-
-enrich_tbl <- read.csv("enrichmentCpG.csv")
-rownames(enrich_tbl) <- enrich_tbl$X
-enrich_tbl <- enrich_tbl[, -1]
-fisher.test(enrich_tbl, alternative = "greater")
-```
-
-# Analysis of Genomic Regions
-## Find overlap of CpGs in DMRs with +500kb LD regions
-```{R}
-DMRsCpGs <- read.csv("cpgs_from_sig_dmrs.csv")
-DMRsCpGs_pos <- CpGsAll[which(CpGsAll$cpg %in% DMRsCpGs$cpgs_dmr),]
-
-
-DMRsCpGs_ranges <- GRanges(seqnames = DMRsCpGs_pos$chr,
-                           ranges = IRanges(DMRsCpGs_pos$start, DMRsCpGs_pos$end))
-
-overlap500 <- findOverlaps(SNPregions500_ranges, DMRsCpGs_ranges)
-overlap500_df <- as.data.frame(overlap500)
-
-SNPsOverlap <- SNPregions[overlap500_df$queryHits, ]
-DMRsCpGsOverlap <- DMRsCpGs_pos[overlap500_df$subjectHits, ]
-
-SNPsDMRsCpGsOverlap <- cbind(SNPsOverlap, DMRsCpGsOverlap)
-SNPsDMRsCpGsOverlap %>% filter(fdr < 0.05)
-```
-
-```{R, eval = FALSE}
-write.csv(SNPsDMRsCpGsOverlap,
-          "AD_SNPs500Kb_DMRsCpGs_overlap.csv",
-          row.names = FALSE)
-```
-
-## Find overlap of CpGs in inputRegions with +500kb LD regions
-```{R}
-allRegionsCpGs <- read.csv("meta_dmrs_probes.csv")
-allRegionsCpGs_pos <- CpGsAll[which(CpGsAll$cpg %in% allRegionsCpGs$cpg),]
-
-allRegionsCpGs_pos$ADregion <- ifelse(allRegionsCpGs_pos$cpg %in% SNPsDMRsCpGsOverlap$cpg, 1, 0)
-
-allRegionsCpGs_ranges <- GRanges(
-    seqnames = allRegionsCpGs_pos$chr,
-    ranges = IRanges(allRegionsCpGs_pos$start, allRegionsCpGs_pos$end)
-)
-
-overlap500 <- findOverlaps(SNPregions500_ranges, allRegionsCpGs_ranges)
-overlap500_df <- as.data.frame(overlap500)
-
-SNPsOverlap <- SNPregions[overlap500_df$queryHits, ]
-allRegionsCpGsOverlap <- allRegionsCpGs_pos[overlap500_df$subjectHits, ]
-
-SNPsAllRegionsCpGsOverlap <- cbind(SNPsOverlap, allRegionsCpGsOverlap)
-SNPsAllRegionsCpGsOverlap %>% filter(fdr < 0.05)
-```
-
-```{R, eval = FALSE}
-write.csv(SNPsAllRegionsCpGsOverlap,
-          "AD_SNPs500Kb_allRegionsCpGs_overlap.csv",
-          row.names = FALSE)
-```
-
-## Enrichment analysis: CpGs in DMRs vs CpGs in all inputRegions
-```{R}
-s <- subset(SNPsAllRegionsCpGsOverlap, ADregion == 0)
-length(unique(s$cpg)) ## 5299
-
-enrich_tbl <- read.csv("enrichmentDMRsCpGs.csv")
-rownames(enrich_tbl) <- enrich_tbl$X
-enrich_tbl <- enrich_tbl[, -1]
-fisher.test(enrich_tbl, alternative = "greater")
 ```
 
 # Session information

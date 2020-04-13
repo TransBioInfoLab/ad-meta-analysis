@@ -453,7 +453,8 @@ dmr_final <- merge(
 )
 
 cpg_final <- merge(
-  cpg_cor, becon_cpgs,
+  cpg_cor, 
+  becon_cpgs,
   by = "cpg",
   all.x = TRUE
 )
@@ -531,7 +532,7 @@ cpg_final[
 
 ## Results: filtering results using BeCon 
 ```{R}
-cpg_final %>% 
+cpg_final %>% rbind(dmr_final) %>% 
   dplyr::filter(
     abs(residual_spearman_cor) > 0.5 &
       abs(beta_spearman_cor)  > 0.5 &
@@ -539,6 +540,7 @@ cpg_final %>%
       beta_fdr < 0.05 &
       BECon_cor_BA10 > 0.5
   )
+
 ```
 
 

@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
     toc: true
     number_sections: true
     df_print: paged
@@ -182,7 +181,7 @@ dim(beta142Filtered_mat)
 nb.probes.cg.dmrcate <- nrow(beta142Filtered_mat)
 ```
 
-```{R}
+```{R, eval = TRUE}
 ##### 4. Output datasets #######################################################
 saveRDS(
   beta142Filtered_mat,
@@ -192,9 +191,7 @@ saveRDS(
 
 ## QC samples
 
-1. quantro test - decide if quantile normalization is needed
-2. quantile normalization - box plots before and after sample QC
-3. BMIQ - density plots before and after sampel QC
+- Quantile normalization and BMIQ normalization
 
 Input: 
 
@@ -205,78 +202,17 @@ Input:
 Output: 
 
 - MtSinai_QNBMIQ.RDS
-- boxplots before and after quantile normalization
-- denstity plots before and after quantile normalization and BMIQ
 
 ```{R qcSamplesData}
 beta_mat <- readRDS(paste0(data.dir.probes.qc, "beta142_CG_XY_SNPfiltered_mat.RDS"))
 pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_df.RDS"))
 ```
 
-## Quanto test
-
-```{R, eval = FALSE}
-library(quantro)
-library(doParallel)
-cl <- makeCluster(15)
-registerDoParallel(cl)
-qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
-                     groupFactor = pheno_df$stage,
-                     B = 1000)
-stopCluster(cl)
-```
-
-```{R, include = FALSE}
-# save(qtestPerm,file = file.path(data.dir,"qtestPerm.rda"))
-load(file.path(data.dir.probes.normalization,"qtestPerm.rda"))
-```
-
-```{R}
-qtestPerm
-```
-
-## Plot before normalization and BMIQ
-
-```{R}
-pheno_df$stage <- factor(pheno_df$stage)
-
-### Density plot
-matdensity(object = beta_mat,
-           groupFactor = pheno_df$stage,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", 
-           brewer.n = 8, 
-           brewer.name = "Dark2")
-legend('top',
-       paste0("stage ", levels(pheno_df$stage)),
-       col = c(1:7), lty = 1, lwd = 3)
-
-### Boxplot
-matboxplot(beta_mat,
-           groupFactor = pheno_df$stage,
-           xaxt = "n",
-           main = "Beta Values in MtSinai cohort (autosomes) - before normalization")
-legend('bottom',
-       paste0("stage ", levels(pheno_df$stage)),
-       col = c(1:7), 
-       lty = 1, 
-       lwd = 3, 
-       cex = 0.70)
-```
-
 ## Quantile normalization 
 
-```{R}
+```{R, eval = FALSE}
 library(lumi)
 betaQN <- lumiN(x.lumi = beta_mat, method = "quantile")
-
-dim(betaQN)
-
-##### 4. Boxplot after normalization ###########################################
-matboxplot(betaQN,
-           groupFactor = pheno_df$stage,
-           xaxt = "n",
-           main = "Beta Values in MtSinai cohort (autosomes) - after normalization")
 ```
 
 ```{R, message = FALSE, results = "hide"}
@@ -287,7 +223,7 @@ library(sesame)
 library(sesameData)
 ```
 
-```{R}
+```{R, eval = FALSE}
 ### Order annotation in the same order as beta matrix
 annotType <- sesameDataGet("HM450.hg19.manifest")
 annotType$designTypeNumeric <- ifelse(annotType$designType == "I",1,2)
@@ -323,22 +259,6 @@ saveRDS(betaQN_BMIQ, paste0(data.dir.probes.normalization, "MtSinai_QNBMIQ.RDS")
 betaQN_BMIQ <- readRDS(paste0(data.dir.probes.normalization, "MtSinai_QNBMIQ.RDS"))
 ```
 
-## Density plot after normalization and BMIQ 
-
-```{R}
-matdensity(object = betaQN_BMIQ,
-           groupFactor = pheno_df$stage,
-           xlab = " ", 
-           ylab = "density",
-           main = "Beta Values", 
-           brewer.n = 8, 
-           brewer.name = "Dark2")
-
-legend('top',
-       paste0("stage ", levels(pheno_df$stage)),
-       col = c(1:7), lty = 1, lwd = 3)
-```
-
 # Outliers detection - PCA analysis
 
 Description: 
@@ -368,8 +288,7 @@ devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d
 
 ```{R}
 ##### 0.Import datasets ########################################################
-beta_mat <-
-  readRDS(paste0(data.dir.probes.normalization, "MtSinai_QNBMIQ.RDS")) #dim: 437713 142
+beta_mat <- readRDS(paste0(data.dir.probes.normalization, "MtSinai_QNBMIQ.RDS")) #dim: 437713 142
 
 pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_df.RDS")) #dim: 142 7
 
@@ -378,8 +297,7 @@ identical(colnames(beta_mat), pheno_df$sample)
 ### transform to m values
 mvalue_mat <- log2(beta_mat / (1 - beta_mat)) #dim: 437713 142
 
-both_df <-
-  subset(pheno_df, pheno_df$sample %in% colnames(beta_mat)) #dim: 142 7
+both_df <- subset(pheno_df, pheno_df$sample %in% colnames(beta_mat)) #dim: 142 7
 
 # both_df$stage <- as.numeric(as.character(both_df$stage))
 
