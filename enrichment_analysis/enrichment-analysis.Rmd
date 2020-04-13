@@ -108,7 +108,7 @@ all.plot.region <-
          "Significant w/ Negative estimate (n = 177)" = meta_sig_neg_est,
          "Significant w/ Positive estimate (n = 565)" = meta_sig_probes_pos_est),
   )
-all.plot.region$table
+
 plot.region.cpg <- all.plot.region$plot + ggtitle("Region meta-analysis probes") 
 ggsave(plot = plot.region.cpg,width = 9,filename = "plots/meta_analysis_region_enrichment.pdf")
 ```
@@ -353,7 +353,6 @@ plot.chrm.hypo <- cpGsEnrichment(
 )
 
 plot.chrm.hypo$plot
-plot.chrm.hypo$table
 
 plot.chrm.hyper <- cpGsEnrichment(
   fg.probes = foreground.probes.pos.est,
@@ -366,7 +365,6 @@ plot.chrm.hyper <- cpGsEnrichment(
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_single_cpg_pos_est_chromHMM_states.png")
 plot.chrm.hyper$plot
-plot.chrm.hyper$table
 
 single.cpg.plot <- cpGsGenomicFeatures(
   list("Evaluated probes (n = 450793)" = background.probes,
