@@ -4,7 +4,7 @@ Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt,
 
 ## Description
 
-< add abstract here >
+Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) and the inconsistencies often observed in different studies, we conducted a meta-analysis of more than one thousand prefrontal cortex brain samples, to prioritize the most consistent methylation changes in multiple cohorts. Using an uniform analysis pipeline, we identified 119 DMRs and 3751 significant CpGs that are consistently associated with AD Braak stage across cohorts. Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights. For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. Our enrichment analysis also highlighted the particular relevant roles of the immune system and PRC2 in AD. These results will be a valuable resource to facilitate future mechanistic and biomarker discovery studies. 
 
 ### Single cohort analysis
 
@@ -33,7 +33,6 @@ Each of the files has the following sections:
 
 ### Meta-analysis 
 
-#### Description
 To meta-analyze individual CpG results across different cohorts, we used the meta R package. For region based meta-analysis, we used two complementary analytical pipelines, the comb-p approach and the coMethDMR approach: 
 
 (1) comb-p appraoch - we used meta-analysis p-values of the four brain samples discovery cohorts as input for comb-p. 
@@ -52,8 +51,6 @@ To meta-analyze coMethDMR results across different cohorts, first, we assigned c
 
 ### Enrichment analysis of significant DNA methylation changes 
 
-#### Description
-
 Meta-analysis results were divided into two groups, methylation changes with positive estimates (hypermethylation in AD compared to control) and negative estimae (hypomethylation in AD compared to control). For each group, we performed an enrichment analysis (Fisher's test) separately for DMRs and CpGs. 
 
 The main regions/probe annotation used were: 
@@ -69,7 +66,6 @@ The main regions/probe annotation used were:
 
 ### Matched Meta-analysis
 
-#### Description
 To prioritize methylation changes most likely to be affected by the AD pathogenesis process, we performed additional analysis using a sample matching strategy to reduce confounding effects due to age. More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. The matched samples were then analyzed in the same way as described above, except by removing age at death effect in the linear models. 
 
 #### Files
@@ -80,9 +76,6 @@ To prioritize methylation changes most likely to be affected by the AD pathogene
 
 ### Correlation of methylation changes in brain and blood samples
 
-
-#### Description
-
 Using the London cohort which consisted of 69 pairs of samples with matched PFC and blood samples, we compared brain-blood methylation levels in significant CpGs and those CpGs mapped within significant DMRs using Spearman correlations. Two approaches were used to quantify methylation levels: using beta values, or using corrected methylation levels. In addition, we also conducted look up analysis using the BeCon tool, which compared brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
 
 #### Files
@@ -92,8 +85,6 @@ Using the London cohort which consisted of 69 pairs of samples with matched PFC 
 | cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/ske24n7nt7lcplw/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
-
-#### Description
 
 We used 529 samples from the ROSMAP study with matched DNA methylation and RNA-seq data for this analysis. 
 More specifically, normalized FPKM (Fragments Per Kilobase of transcript per Million mapped reads) 
