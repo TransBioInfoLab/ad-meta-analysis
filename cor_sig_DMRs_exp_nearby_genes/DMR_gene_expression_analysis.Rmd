@@ -1,5 +1,5 @@
 ---
-title: "Analyzing epigenetic effect of coMethylated regions"
+title: "Correlation of AD associated methylation changes with expressions of nearby genes"
 date: "`r format(Sys.time(), '%d %B %Y')`"
 author:
 - Tiago C. Silva, Lanyu Zhang, Lily Wang
@@ -66,7 +66,7 @@ suppressMessages({
 
 ## Reading data created previously
 
-```{R, fig.height = 6}
+```{R, fig.height = 6, include = FALSE, eval = FALSE}
 data.path <- "../code_validation/Meta_analysis_code/DATASETS/ROSMAP"
 load("data/matched_data.rda")
 dim(matched.dnam)
@@ -108,9 +108,9 @@ dim(dmr.hyper)
 ## Analysis: RNA vs DNAm
 
 For each region coMethylated region, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the 
-following model:
+following model, for cases and controls separately:
 
-$$rna_{residual} \sim met_{residual} + group + group *  met_{residual}$$
+$$rna_{residual} \sim met_{residual} $$
 
 ### Remove confounding effects in DNAm data
 
@@ -236,7 +236,6 @@ Linear models:
 
 - For cases (Braak stage 3-6): $\text{RNA residuals} \sim \text{DNAm residuals}$
 - For controls (Braak stage 0-2): $\text{RNA residuals} \sim \text{DNAm residuals}$
-- For all samples $\text{RNA residuals} \sim \text{DNAm residuals} + group + group \times \text{DNAm residuals}$
 
 ```{R, eval = FALSE}
 # http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
@@ -318,10 +317,10 @@ tab <- plyr::adply(
 readr::write_csv(tab,path = "results/results_regions_lm_250kb_window.csv")
 ```
 
-### Plots
+
 
 ```{R, include = FALSE}
-
+### Plots
 plotTargetDNAm <- function(row){
   rna.target <- resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
   met.residual <- resid_met[rownames(resid_met) == as.character(row$regionID), ]
@@ -467,9 +466,11 @@ plotTargetDNAm <- function(row){
 }
 ```
 
+
+
+```{R  model_all_plot_neg_cpg, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
 #### Lowest interaction p-values
 
-```{R  model_all_plot_neg_cpg, show = FALSE, fig.height = 8}
 tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$all_pval_met.residual.groupControl)[1:10],],
                     .margins = 1,
@@ -481,9 +482,10 @@ list
 ```
 
 
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
 #### Lowest DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
 tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$all_pval_met.residual)[1:10],],
                     .margins = 1,
@@ -495,9 +497,11 @@ list
 ```
 
 
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+
 #### Lowest cases DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
 tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
                     .margins = 1,
@@ -508,9 +512,11 @@ list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
 list
 ```
 
-#### Lowest control DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+
+#### Lowest control DNAm p-values
 tab <- readr::read_csv("results/results_regions_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(
   tab[order(tab$control_pval_met.residual)[1:10],],
@@ -591,10 +597,9 @@ dim(dmc.hyper)
 
 ## Analysis: RNA vs DNAm
 
-For each region coMethylated region, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the 
-following model:
+For each CpG significantly associated with Braak stage, we looked for genes within $250Kbp$ and correlated DNAm with gene expression with the following model, for cases and controls separately:
 
-$$rna_{residual} \sim met_{residual} + group + group *  met_{residual}$$
+$$rna_{residual} \sim met_{residual} $$
 
 ### Remove confounding effects in DNAm data
 
@@ -658,7 +663,6 @@ head(regions.genes)
 Linear models:
 - For cases (Braak stage 3-6): $\text{RNA residuals} \sim \text{DNAm residuals}$
 - For controls (Braak stage 0-2): $\text{RNA residuals} \sim \text{DNAm residuals}$
-- For all samples $\text{RNA residuals} \sim \text{DNAm residuals} + group + group \times \text{DNAm residuals}$
 
 ```{R, eval = FALSE}
 # http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
@@ -757,10 +761,10 @@ tab.cpg <- plyr::adply(
 readr::write_csv(tab.cpg,path = "results/results_single_cpg_lm_250kb_window.csv")
 ```
 
-### Plots
+
 
 ```{R, include = FALSE}
-
+### Plots
 plotTargetDNAm <- function(row){
   rna.target <-
     resid_exp[rownames(resid_exp) == row$gene_ensembl_gene_id, , drop = FALSE]
@@ -899,9 +903,10 @@ plotTargetDNAm <- function(row){
 }
 ```
 
-#### Lowest interaction p-values
 
-```{R  model_all_plot_neg_region, show = FALSE, fig.height = 8}
+
+```{R  model_all_plot_neg_region, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+#### Lowest interaction p-values
 tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$all_pval_met.residual.groupControl)[1:10],],
                     .margins = 1,
@@ -913,9 +918,10 @@ list
 ```
 
 
-#### Lowest DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+#### Lowest DNAm p-values
 tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$all_pval_met.residual)[1:10],],
                     .margins = 1,
@@ -927,9 +933,10 @@ list
 ```
 
 
-#### Lowest cases DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+#### Lowest cases DNAm p-values
 tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
                     .margins = 1,
@@ -940,9 +947,10 @@ list <- plyr::alply(tab[order(tab$cases_pval_met.residual)[1:10],],
 list
 ```
 
-#### Lowest control DNAm p-values
 
-```{R, show = FALSE, fig.height = 8}
+
+```{R, show = FALSE, fig.height = 8, include = FALSE, eval = FALSE}
+#### Lowest control DNAm p-values
 tab <- readr::read_csv("results/results_single_cpg_lm_250kb_window.csv", col_types = readr::cols())
 list <- plyr::alply(tab[order(tab$control_pval_met.residual)[1:10],],
                     .margins = 1,
