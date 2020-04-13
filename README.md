@@ -4,11 +4,25 @@ Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt,
 
 ### Description
 
-Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) and the inconsistencies often observed in different studies, we conducted a meta-analysis of more than one thousand prefrontal cortex brain samples, to prioritize the most consistent methylation changes in multiple cohorts. Using an uniform analysis pipeline, we identified 119 DMRs and 3751 significant CpGs that are consistently associated with AD Braak stage across cohorts. Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights. For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. Our enrichment analysis also highlighted the particular relevant roles of the immune system and PRC2 in AD. These results will be a valuable resource to facilitate future mechanistic and biomarker discovery studies. 
+Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) 
+and the inconsistencies often observed in different studies, we conducted a 
+meta-analysis of more than one thousand prefrontal cortex brain samples, 
+to prioritize the most consistent methylation changes in multiple cohorts. 
+Using an uniform analysis pipeline, we identified 119 DMRs and 3751 significant CpGs 
+that are consistently associated with AD Braak stage across cohorts. 
+Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights. 
+For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. 
+Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. 
+Our enrichment analysis also highlighted the particular relevant roles of the immune system and PRC2 in AD. 
+These results will be a valuable resource to facilitate future mechanistic and biomarker discovery studies. 
 
 ### Single cohort analysis
 
-This section includes scripts for cohort specific analysis. The association between CpG methylation levels and Braak stage was assessed using linear statistical models for each cohort. We adjusted for potential confounding factors including age at death, sex, batch effects, and proportion of different cell types in the samples estimated by the CETS R package. 
+This section includes scripts for cohort specific analysis. 
+The association between CpG methylation levels and Braak stage was assessed using 
+linear statistical models for each cohort. We adjusted for potential confounding 
+factors including age at death, sex, batch effects, and proportion of different 
+cell types in the samples estimated by the CETS R package. 
 
 Each of the files has the following sections:
 
@@ -32,15 +46,31 @@ Each of the files has the following sections:
 
 ### Meta-analysis 
 
-To meta-analyze individual CpG results across different cohorts, we used the meta R package. For region based meta-analysis, we used two complementary analytical pipelines, the comb-p approach and the coMethDMR approach: 
+To meta-analyze individual CpG results across different cohorts, we used the meta R package. 
+For region based meta-analysis, we used two complementary analytical pipelines, 
+the comb-p approach and the coMethDMR approach: 
 
 (1) comb-p appraoch - we used meta-analysis p-values of the four brain samples discovery cohorts as input for comb-p. 
 
-(2) coMethDMR approach - we performed cohort specific analysis for genomic regions first. We define “contiguous genomic regions” to be genomic regions on the Illumina array covered with clusters of contiguous CpGs where the maximum separation between any two consecutive probes is 200 base pairs. Instead of testing all CpGs within a genomic region, coMethDMR carries out an additional step that selects co-methylated sub-regions within the contiguous genomic regions first. 
+(2) coMethDMR approach - we performed cohort specific analysis for genomic regions first. 
+We define “contiguous genomic regions” to be genomic regions on the Illumina array covered 
+with clusters of contiguous CpGs where the maximum separation between any two consecutive 
+probes is 200 base pairs. Instead of testing all CpGs within a genomic region, 
+coMethDMR carries out an additional step that selects co-methylated sub-regions 
+within the contiguous genomic regions first. 
  
-Next, we summarized methylation M values within these co-methylated sub-regions using medians and tested them against AD Braak stage. We adjusted for potential confounding factors including age at death, sex, methylation slide, and proportion of different cell types in the samples estimated by the CETS R package. For ROSMAP cohort, we additionally included variable "batch" that was available in the dataset to adjust for technical batches occurred during data generation.    
+Next, we summarized methylation M values within these co-methylated sub-regions 
+using medians and tested them against AD Braak stage. We adjusted for potential 
+confounding factors including age at death, sex, methylation slide, and proportion 
+of different cell types in the samples estimated by the CETS R package. 
+For ROSMAP cohort, we additionally included variable "batch" that was available 
+in the dataset to adjust for technical batches occurred during data generation.    
 
-To meta-analyze coMethDMR results across different cohorts, first, we assigned co-methylated clusters from each cohort to the non-overlapping contiguous genomic regions that they overlap. The cohort specific p-values for each contiguous genomic region were then combined across cohorts using fixed effects meta-analysis model (or random effects model if test of heterogeneity had p-value was less than 0.05). 
+To meta-analyze coMethDMR results across different cohorts, first, 
+we assigned co-methylated clusters from each cohort to the non-overlapping 
+contiguous genomic regions that they overlap. The cohort specific p-values for 
+each contiguous genomic region were then combined across cohorts using fixed 
+effects meta-analysis model (or random effects model if test of heterogeneity had p-value was less than 0.05). 
 
 | File                 | HTML |
 |----------------------|----------------------|
@@ -49,7 +79,9 @@ To meta-analyze coMethDMR results across different cohorts, first, we assigned c
 
 ### Enrichment analysis of significant DNA methylation changes 
 
-Meta-analysis results were divided into two groups, methylation changes with positive estimates (hypermethylation in AD compared to control) and negative estimae (hypomethylation in AD compared to control). For each group, we performed an enrichment analysis (Fisher's test) separately for DMRs and CpGs. 
+Meta-analysis results were divided into two groups, methylation changes with positive estimates 
+(hypermethylation in AD compared to control) and negative estimae (hypomethylation in AD compared to control). 
+For each group, we performed an enrichment analysis (Fisher's test) separately for DMRs and CpGs. 
 
 The main regions/probe annotation used were: 
 
@@ -63,7 +95,13 @@ The main regions/probe annotation used were:
 
 ### Matched Meta-analysis
 
-To prioritize methylation changes most likely to be affected by the AD pathogenesis process, we performed additional analysis using a sample matching strategy to reduce confounding effects due to age. More specifically, we first matched each case with a control sample using matchControls function in e1071 R package. The matched samples were then analyzed in the same way as described above, except by removing age at death effect in the linear models. 
+To prioritize methylation changes most likely to be affected by the 
+AD pathogenesis process, we performed additional analysis using a sample 
+matching strategy to reduce confounding effects due to age. 
+More specifically, we first matched each case with a control sample using matchControls 
+function in e1071 R package. 
+The matched samples were then analyzed in the same way as described above, 
+except by removing age at death effect in the linear models. 
 
 | File                 | HTML |
 |----------------------|----------------------|
@@ -71,7 +109,11 @@ To prioritize methylation changes most likely to be affected by the AD pathogene
 
 ### Correlation of methylation changes in brain and blood samples
 
-Using the London cohort which consisted of 69 pairs of samples with matched PFC and blood samples, we compared brain-blood methylation levels in significant CpGs and those CpGs mapped within significant DMRs using Spearman correlations. Two approaches were used to quantify methylation levels: using beta values, or using corrected methylation levels. In addition, we also conducted look up analysis using the BeCon tool, which compared brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
+Using the London cohort which consisted of 69 pairs of samples with matched PFC and blood samples, 
+we compared brain-blood methylation levels in significant CpGs and those CpGs mapped within significant DMRs using Spearman correlations. 
+Two approaches were used to quantify methylation levels: using beta values, or using corrected methylation levels. 
+In addition, we also conducted look up analysis using the BeCon tool, which compared 
+brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
 
 | File                 |    HTML                  | 
 |----------------------|----------------------|
@@ -87,6 +129,17 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 | File                 |                      | 
 |----------------------|----------------------|
 | cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/8ob5lfbjchz0rdz/DMR_gene_expression_analysis.html?dl=0)|
+
+### Overlap with genetic susceptibility loci
+
+To evaluate if the significant methylation changes are located closely to genetic risk loci, 
+we tested enrichment of significant CpGs and DMRs identified in this study with the 
+24 LD blocks of genetic variants reaching genome-wide significance in a 
+recent AD meta-analysis102 (PMID: 30820047), using one-sided Fisher’s test. 
+
+| File                 |                      | 
+|----------------------|----------------------|
+|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://www.dropbox.com/s/8ob5lfbjchz0rdz/DMR_gene_expression_analysis.html?dl=0)|
 
 
 
