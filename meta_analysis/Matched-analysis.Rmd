@@ -1263,9 +1263,10 @@ res <- res[order(res$fdr),]
 res
 ```
 
+
+```{R, eval = FALSE, include = FALSE}
 ## Compare with sig DMRs from main analysis
 
-```{R, eval = FALSE}
 ### Call in datasets
 main_dmrs <- read.csv(
   paste0(dir.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv")
@@ -1337,7 +1338,6 @@ makeVennDiagram(
 2. meta analysis
 3. add annotation
 4. Delete cross-hybridizing and smoking probes from sig probes
-5. Compare with sig CpGs from main analysis  
 
 ## Import datasets  
 
@@ -1545,9 +1545,10 @@ res <- res[order(res$fdr),]
 res
 ```
 
+
+```{R, eval = FALSE, include = FALSE}
 ## Compare with sig CpGs from main analysis
 
-```{R, eval = FALSE}
 ### Call in datasets
 main_cpgs <- read.csv(
   paste0(dir.single.cpg, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
