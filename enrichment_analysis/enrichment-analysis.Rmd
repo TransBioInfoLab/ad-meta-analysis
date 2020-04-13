@@ -190,7 +190,7 @@ plot.chrm.hypo <- cpGsEnrichment(
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_region_neg_estimate_chromHMM_states.png"
   )
-plot.chrm.hypo$plot
+#plot.chrm.hypo$plot
 
 plot.chrm.hyper <- cpGsEnrichment(
   fg.probes = meta_sig_probes_pos_est,
@@ -203,7 +203,7 @@ plot.chrm.hyper <- cpGsEnrichment(
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_region_pos_est_chromHMM_states.png"
 )
-plot.chrm.hyper$plot
+#plot.chrm.hyper$plot
 
 region.cpg.plot <-
   cpGsGenomicFeatures(
@@ -352,7 +352,7 @@ plot.chrm.hypo <- cpGsEnrichment(
   plot.filename = "plots/meta_analysis_single_cpg_neg_estimate_chromHMM_states.png"
 )
 
-plot.chrm.hypo$plot
+#plot.chrm.hypo$plot
 
 plot.chrm.hyper <- cpGsEnrichment(
   fg.probes = foreground.probes.pos.est,
@@ -364,7 +364,7 @@ plot.chrm.hyper <- cpGsEnrichment(
                     length(background.probes),")"),
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_single_cpg_pos_est_chromHMM_states.png")
-plot.chrm.hyper$plot
+#plot.chrm.hyper$plot
 
 single.cpg.plot <- cpGsGenomicFeatures(
   list("Evaluated probes (n = 450793)" = background.probes,
@@ -642,7 +642,7 @@ locResults   %>%
                 caption = "single cpg all LOLA results")
 ```
 
-```{R LOLA_single_run, results = "hide", message = FALSE}
+```{R LOLA_single_run, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
 
 ### All hyper cpgs
 locResults <- runLOLA(
@@ -663,7 +663,7 @@ write.csv(
 )
 ```
 
-```{R}
+```{R, include = FALSE, eval = FALSE}
 locResults   %>%
   dplyr::filter(qValue < 0.05) %>%
   DT::datatable(filter = 'top',
@@ -678,7 +678,7 @@ locResults   %>%
                 caption = "single cpg hyper LOLA results")
 ```
 
-```{R LOLA_single_res, results = "hide", message = FALSE}
+```{R LOLA_single_res, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
 
 ### All hypo cpgs
 locResults <- runLOLA(
@@ -699,7 +699,7 @@ write.csv(
 )
 ```
 
-```{R}
+```{R, include = FALSE, eval = FALSE}
 locResults   %>%
   dplyr::filter(qValue < 0.05) %>%
   DT::datatable(filter = 'top',
