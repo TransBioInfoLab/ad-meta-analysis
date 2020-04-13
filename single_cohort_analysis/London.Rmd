@@ -113,7 +113,10 @@ Description:
 ##### 1. Subset pheno data #####################################################
 
 ### Read in phenotype data
-phenoRaw_df <- readr::read_csv(paste0(data.dir.raw, "GSE59685_pheno.csv")) #dim: 531 49
+phenoRaw_df <- readr::read_csv(
+  paste0(data.dir.raw, "GSE59685_pheno.csv"),
+  col_types = readr::cols()
+) #dim: 531 49
 
 ### Subset rows and columns
 phenoPFC_df <- phenoRaw_df %>%
@@ -462,14 +465,6 @@ pheno107_df %>%
                 rownames = FALSE,
                 caption = "Samples metadata")
 ```
-
-
-```{R}
-ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8)
-ggpubr::gghistogram(data = pheno_df, x = "stage",bins = 8,facet.by = "sex",fill = "sex")
-```
-
-
 
 ## Numbers of samples and probes removed in each step
 
