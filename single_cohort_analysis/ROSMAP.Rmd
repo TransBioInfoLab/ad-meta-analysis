@@ -1,6 +1,6 @@
 ---
 title: "ROSMAP dataset"
-author: "Lanyu Zhang, Tiago C. Silva, Lissette Gomez, Lily Wang"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
 date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
@@ -315,9 +315,7 @@ dim(betaSet)
 
 # Normalization
 
-1. quantro test - decide if quantile normalization is needed
-2. quantile normalization - box plots before and after sample QC
-3. BMIQ - density plots before and after sampel QC
+- Quantile normalization and BMIQ normalization
 
 Input: 
 
@@ -331,8 +329,6 @@ Output:
 - bs.csv
 - pheno_df.RDS
 - QNBMIQ.RDS
-- boxplots before and after quantile normalization
-- denstity plots before and after quantile normalization and BMIQ
 
 
 ```{R qc_samples, message = FALSE, results = "hide"}
@@ -342,71 +338,11 @@ library(RPMM)
 library(sesame)
 library(sesameData)
 ```
-
-## Quantro test 
-
-```{R, eval = FALSE}
-##### 1. Quantro test ##########################################################
-library(quantro)
-library(doParallel)
-qtestPerm <- quantro(object = betaSet[complete.cases(betaSet),],
-                     groupFactor = phenoData$braaksc,
-                     B = 1000)
-save(qtestPerm,file = file.path(data.dir.probes.normalization,"quantro.rda"))
-```
-
-```{R}
-# save(qtestPerm,file = file.path(dir.dnam,"quantro.rda"))
-load(file.path(data.dir.probes.normalization,"quantro.rda"))
-```
-
-
-```{R}
-qtestPerm
-```
-
-
-
-```{R}
-## 4. Density plot by disease stage
-phenoData$braaksc <- factor(phenoData$braaksc)
-
-matdensity(object = betaSet,
-           groupFactor = phenoData$braaksc,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("stage ", levels(phenoData$braaksc)),
-       col = c(1:7), lty = 1, lwd = 3)
-```    
-
-```{R, fig.width = 20}
-matboxplot(betaSet,
-           groupFactor = phenoData$braaksc,
-           xaxt = "n",
-           main = "Beta Values in ROSMAP cohort (autosomes) - before normalization")
-
-legend('bottom',
-       paste0("stage ", levels(phenoData$braaksc)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
-```
-
 ## Quantile normalization
 
 ```{R lumin, eval = FALSE}
 library(lumi)
 betaQN <- lumiN(x.lumi = betaSet, method = "quantile")
-
-dim(betaQN)
-
-matboxplot(betaQN,
-           groupFactor = phenoData$braaksc,
-           xaxt = "n",
-           main = "Beta Values in ROSMAP cohort (autosomes) - after normalization")
-legend('bottom',
-       paste0("stage ", levels(phenoData$braaksc)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
 ```
 
 
@@ -450,20 +386,6 @@ dim(betaQN_BMIQ)
 phenoData <- readRDS(file.path(data.dir.probes.normalization,"pheno.rds"))
 dim(phenoData)
 ```
-
-```{R}
-# after normalization density plot
-matdensity(object = betaQN_BMIQ,
-           groupFactor = phenoData$braaksc,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("stage ", levels(phenoData$braaksc)),
-       col = c(1:7), lty = 1, lwd = 3)
-```
-
-
 
 # Outliers detection - PCA analysis
 
