@@ -40,9 +40,9 @@ Each of the files has the following sections:
 | File                 | Dataset | HTML |
 |----------------------|-------------|-------------| 
 | single_cohort_analysis/Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://www.dropbox.com/s/1nfwh6i73rq8836/Gasparoni.html?dl=0)|
-| single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/eqjmfeineram3sb/London.html?dl=0)|
-| single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/9blmgl7h3ptarm2/MtSinai.html?dl=0)|
-| single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/tkw7aw1cfe0rsqk/ROSMAP.html?dl=0)|
+| single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/t56dakqkzxygbhm/London.html?dl=0)|
+| single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://www.dropbox.com/s/s2r4143u3yp94yq/MtSinai.html?dl=0)|
+| single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/68qrntnh2knskgz/ROSMAP.html?dl=0)|
 
 ### Meta-analysis 
 
@@ -117,7 +117,7 @@ brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem sam
 
 | File                 |    HTML                  | 
 |----------------------|----------------------|
-| single_cohort_analysis/London_blood.Rmd     | [Link to compiled report](https://www.dropbox.com/s/yf9vih7dkpdw06r/London_blood.html?dl=0)|
+| single_cohort_analysis/London_blood.Rmd     | [Link to compiled report](https://www.dropbox.com/s/jxegcotwk2pzs1g/London_blood.html?dl=0)|
 | cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://www.dropbox.com/s/ske24n7nt7lcplw/London_blood_brain_correlation.html?dl=0)|
 
 ### Correlation of significant DMRs with expression of nearby genes
