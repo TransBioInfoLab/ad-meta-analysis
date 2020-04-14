@@ -5,7 +5,6 @@ date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
     theme: lumen
-    highlight: zenburn
     toc: true
     number_sections: true
     df_print: paged
@@ -102,9 +101,9 @@ Description:
 
  Subset Files
  1. subset pheno data to
-  1) whole blood tissue and status != "Exclude" (n = 57)
+  1) whole blood tissue 
   2) variables -- sample, subject_id, sentrix_id, slide, age, sex, stage
- 2. subset methylation data to match subjects in pheno data (n = 57)
+ 2. subset methylation data to match subjects in pheno data
 
  Input: GSE59685_pheno.csv, GSE59685_assay.RDS
  Output: pheno_BLOOD_df.RDS, beta110_BLOOD_mat.RDS
@@ -121,8 +120,7 @@ phenoRaw_df <- readr::read_csv(paste0(data.dir.raw, "GSE59685_pheno.csv")) #dim:
 
 ### Subset rows and columns
 phenoBLOOD_df <- phenoRaw_df[
-  (phenoRaw_df$source_name_ch1 == "whole blood") &
-    (phenoRaw_df$ad.disease.status.ch1 != "Exclude"),
+  (phenoRaw_df$source_name_ch1 == "whole blood"),
   c("geo_accession", "subjectid.ch1", "barcode.ch1",
     "age.blood.ch1", "Sex.ch1", "ad.disease.status.ch1", "braak.stage.ch1")
 ]
@@ -150,6 +148,7 @@ pheno_df <- phenoBLOOD_df[, c(
   "sample", "subject.id", "sentrix_id", "slide",
   "age.blood", "sex", "status", "stage"
 )] 
+dim(pheno_df)
 ```
 
 ```{R}
@@ -160,14 +159,16 @@ beta_mat <- readRDS(paste0(data.dir.raw, "GSE59685_assay.RDS")) #dim: 485577 531
 
 ### Subset methylation data based on pheno data
 beta_mat <- beta_mat[, match(pheno_df$sample,colnames(beta_mat))] # dim: 485577 110
+```
 
+```{R, eval = FALSE}
 ##### 3. Output datasets #######################################################
 
 ## phenotype dataset
-saveRDS(pheno_df, paste0(data.dir.clinical.filter, "pheno_BLOOD_df.RDS")) 
+saveRDS(pheno_df, paste0(data.dir.clinical.filter, "pheno_BLOOD_withStatusExclude_df.RDS")) 
 
 ## methylation beta values dataset
-saveRDS(beta_mat, paste0(data.dir.clinical.filter, "beta_BLOOD_mat.RDS")) 
+saveRDS(beta_mat, paste0(data.dir.clinical.filter, "beta_BLOOD_withStatusExclude_mat.RDS")) 
 ```
 
 ## Probes QC
@@ -182,8 +183,7 @@ saveRDS(beta_mat, paste0(data.dir.clinical.filter, "beta_BLOOD_mat.RDS"))
 
 ```{R}
 ##### 1. keep on probes with start with "cg" ###################################
-
-beta_mat <- readRDS(paste0(data.dir.clinical.filter, "beta_BLOOD_mat.RDS")) #dim: 485577 110
+beta_mat <- readRDS(paste0(data.dir.clinical.filter, "beta_BLOOD_withStatusExclude_mat.RDS")) 
 nb.probes <- nrow(beta_mat)
 nb.samples <- ncol(beta_mat)
 nb.samples.with.clinical <- ncol(beta_mat)
@@ -209,21 +209,19 @@ beta_CG_XY_SNPfiltered_mat <- rmSNPandCH(
   rmXY = TRUE
 )
 dim(beta_CG_XY_SNPfiltered_mat)
-
+nb.probes.cg.dmrcate <- nrow(beta_CG_XY_SNPfiltered_mat)
 ##### 4. Output datasets #######################################################
 
 saveRDS(
   beta_CG_XY_SNPfiltered_mat,
-  paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.RDS")
+  paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_withStatusExclude_mat.RDS")
 )
 
 ```
 
 ## Samples QC
 
- 1. quantro test - decide if quantile normalization is needed
- 2. quantile normalization - box plots before and after sample QC
- 3. BMIQ - density plots before and after sampel QC
+- Quantile normalization and BMIQ normalization
 
  Input: 
  
@@ -233,87 +231,15 @@ saveRDS(
  
  Output: 
  
-- London_PFC_QNBMIQ.RDS,
-- boxplots before and after quantile normalization
-- denstity plots before and after quantile normalization and BMIQ
-
-
-### Quantro test
-
-```{R}
-beta_mat <- readRDS(paste0(data.dir.probes.qc, "beta_CG_XY_SNPfiltered_mat.RDS"))
-pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_BLOOD_df.RDS")) 
-nb.probes.cg.dmrcate <- nrow(beta_mat)
-```
-
-
-```{R, results = "hide", message = FALSE}
-library(quantro)
-library(doParallel)
-```
-
-```{R, eval = FALSE}
-cl <- makeCluster(4)
-registerDoParallel(cl)
-qtestPerm <- quantro(object = beta_mat[complete.cases(beta_mat),],
-                     groupFactor = pheno_df$status,
-                     B = 1000)
-stopCluster(cl)
-save(qtestPerm,file = file.path(data.dir.probes.normalization,"qtestPerm.rda"))
-```
-
-```{R, include = FALSE, eval = TRUE}
-load(file.path(data.dir.probes.normalization,"qtestPerm.rda"))
-```
-
-```{R}
-qtestPerm
-```
-
-### Plot before normalization and BMIQ
-
-```{R}
-### Density plot
-matdensity(object = beta_mat,
-           groupFactor = pheno_df$status %>% as.factor,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("status ", levels(pheno_df$status %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3)
-
-matboxplot(beta_mat,
-           groupFactor = pheno_df$status,
-           xaxt = "n",
-           main = "Beta Values in London Blood cohort (autosomes) - before normalization")
-
-legend('bottom',
-       paste0("status ",  levels(pheno_df$status %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
-```
+- London_PFC_QNBMIQ.RDS
 
 ### Quantile normalization
 
-```{R}
+```{R, eval = FALSE}
 library(lumi)
 betaQN <- lumiN(x.lumi = beta_mat, method = "quantile")
 
 dim(betaQN)
-```
-
-
-### Boxplot after normalization
-```{R}
-# pheno_df$stage <- factor(pheno_df$stage)
-matboxplot(betaQN,
-           groupFactor = pheno_df$status,
-           xaxt = "n",
-           main = "Beta Values in London Blood cohort (autosomes) - after normalization")
-
-legend('bottom',
-       paste0("status ", levels(pheno_df$status %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3, cex = 0.70)
 ```
 
 ```{R, message = FALSE, results = "hide"}
@@ -324,7 +250,7 @@ library(sesame)
 library(sesameData)
 ```
 
-```{R}
+```{R, eval = FALSE}
 ### Order annotation in the same order as beta matrix
 annotType <- sesameDataGet("HM450.hg19.manifest")
 annotType$designTypeNumeric <- ifelse(annotType$designType == "I",1,2)
@@ -355,27 +281,12 @@ betaQN_BMIQ <- plyr::aaply(
     },.progress = "time",.parallel = TRUE
 ) %>% t()
 
-saveRDS(betaQN_BMIQ, paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ.RDS"))
+saveRDS(betaQN_BMIQ, paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ_withStatusExclude.RDS"))
 ```
 
 
 ```{R, include = FALSE}
-betaQN_BMIQ <- readRDS(paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ.RDS"))
-```
-
-
-```{R}
-##### 6. Density plot after normalization and BMIQ #############################
-# pheno_df$stage <- factor(pheno_df$stage)
-matdensity(object = betaQN_BMIQ,
-           groupFactor = pheno_df$status,
-           xlab = " ", ylab = "density",
-           main = "Beta Values", brewer.n = 8, brewer.name = "Dark2")
-
-legend('top',
-       paste0("status ", levels(pheno_df$status %>% as.factor)),
-       col = c(1:7), lty = 1, lwd = 3)
-
+betaQN_BMIQ <- readRDS(paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ_withStatusExclude.RDS"))
 ```
 
 
@@ -406,9 +317,9 @@ Output:
 # plotPCA and OrderDataBySd functions
 devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
 
-beta_mat <- readRDS(paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ.RDS")) #dim: 437713 110
+beta_mat <- readRDS(paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ_withStatusExclude.RDS")) #dim: 437713 110
 
-pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_BLOOD_df.RDS")) #dim: 110 7
+pheno_df <- readRDS(paste0(data.dir.clinical.filter, "pheno_BLOOD_withStatusExclude_df.RDS")) #dim: 110 7
 
 identical(colnames(beta_mat), pheno_df$sample)
 
@@ -457,7 +368,7 @@ d$outlier_PC1[d$PC1 < out3sdPC1_1 | d$PC1 > out3sdPC1_2] <- 1
 d$outlier_PC2[d$PC2 >= out3sdPC2_1 & d$PC2 <= out3sdPC2_2] <- 0
 d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
 
-write.csv(d, paste0(data.dir.pca, "London_Blood_PCs_usingBetas.csv"))
+write.csv(d, paste0(data.dir.pca, "London_Blood_PCs_usingBetas_withStatusExclude.csv"))
 
 
 ##### 2.PCA plot ###############################################################
@@ -511,19 +422,19 @@ bySex <- plotPCA(
 ```{R, eval = FALSE}
 noOutliers <- d[which(d$outlier_PC1 == 0 & d$outlier_PC2 == 0), ]
 betaQN_BMIQ_PCfiltered <- beta_mat[, rownames(noOutliers)]
-saveRDS(betaQN_BMIQ_PCfiltered, paste0(data.dir.pca, "London_QNBMIQ_PCfiltered.RDS"))
+saveRDS(betaQN_BMIQ_PCfiltered, paste0(data.dir.pca, "London_QNBMIQ_PCfiltered_withStatusExclude.RDS"))
 
 pheno_df <- pheno_df[pheno_df$sample %in% rownames(noOutliers),] 
-saveRDS(pheno_df, paste0(data.dir.pca, "pheno_df.RDS"))
+saveRDS(pheno_df, paste0(data.dir.pca, "pheno_withStatusExclude_df.RDS"))
 ```
 
 # Summary after QC steps
 
 ## Data and metadata
 ```{R}
-betaQN_BMIQ_PCfiltered <- readRDS(paste0(data.dir.pca, "London_QNBMIQ_PCfiltered.RDS")) 
+betaQN_BMIQ_PCfiltered <- readRDS(paste0(data.dir.pca, "London_QNBMIQ_PCfiltered_withStatusExclude.RDS")) 
 nb.samples.with.clinical.after.pca <- ncol(betaQN_BMIQ_PCfiltered)
-pheno_df <- readRDS(paste0(data.dir.pca, "pheno_df.RDS"))
+pheno_df <- readRDS(paste0(data.dir.pca, "pheno_withStatusExclude_df.RDS"))
 dim(betaQN_BMIQ_PCfiltered)
 dim(pheno_df)
 ```
@@ -540,20 +451,6 @@ pheno_df %>%
                                pageLength = 10), 
                 rownames = FALSE,
                 caption = "Samples metadata")
-```
-
-
-```{R}
-ggpubr::gghistogram(data = pheno_df, 
-                    x = "status",
-                    bins = 8, 
-                    stat = "count")
-ggpubr::gghistogram(data = pheno_df,
-                    x = "status",
-                    bins = 8,
-                    facet.by = "sex",
-                    fill = "sex",
-                    stat = "count")
 ```
 
 
@@ -588,7 +485,7 @@ df.probes
 save(df.samples,df.probes,file = file.path(data.dir.table, "LONDON_blood_table.rda"))
 ```
 
-# Compute neuron proportion
+# Compute cell type proportions 
 
 
 Data from  https://www.tandfonline.com/doi/full/10.4161/epi.23924
@@ -596,10 +493,10 @@ Data from  https://www.tandfonline.com/doi/full/10.4161/epi.23924
 - Input: London_QNBMIQ_PCfiltered.RDS, pheno_blood_df.RDS
 - Output: pheno_BLOOD_withBloodProp_df.rds
 
-```{R}
-blood <- readRDS(paste0(data.dir.pca, "London_QNBMIQ_PCfiltered.RDS")) 
+```{R, FALSE}
+blood <- readRDS(paste0(data.dir.pca, "London_QNBMIQ_PCfiltered_withStatusExclude.RDS")) 
 nb.samples.with.clinical.after.pca <- ncol(blood)
-pheno <- readRDS(paste0(data.dir.pca, "pheno_df.RDS"))
+pheno <- readRDS(paste0(data.dir.pca, "pheno_withStatusExclude_df.RDS"))
 library(EpiDISH)
 
 data(centDHSbloodDMC.m)
@@ -618,411 +515,8 @@ identical(pheno_final$sample, colnames(blood))
 
 saveRDS(
   pheno_final,
-  paste0(data.dir.neuron, "pheno_BLOOD_withBloodProp_df.rds")
+  paste0(data.dir.neuron, "pheno_BLOOD_withBloodProp_withStatusExclude_df.rds")
 )
-```
-
-# Linear regression by regions median Methylation 
-
-## Residuals control and coMethylated Regions
-
-
-1. Take residuals
-2. Find co-methylated regions
-
-Input: 
-
-- QNBMIQ_PCfiltered
-- pheno_withNeuronProp_df
-
-Output: 
-
-- QNBMIQ_PCfiltered_mvalResiduals
-- residuals_cometh_ls
-
-### Take residuals
-
-```{R, eval = TRUE}
-##### 1. Import datasets #######################################################
-beta_mat <- readRDS(grep("QNBMIQ",dir(data.dir.pca,full.names = T),ignore.case = T,value = T)) 
-pheno_df <- readRDS(dir(data.dir.neuron,full.names = T)) 
-
-### Compute M values
-mvalue_mat <- log2(beta_mat / (1 - beta_mat))
-
-### Reorder samples based on pheno_df
-mvalue_mat <- mvalue_mat[, pheno_df$sample]
-
-identical(colnames(mvalue_mat),  pheno_df$sample)
-```
-
-```{R, eval = FALSE}
-lmF <- function(mval){
-  fitE <- lm(
-    as.numeric(mval) ~ age.blood + sex + slide +
-      B + NK + CD4T + CD8T + Mono + Neutro + Eosino,
-    data = pheno_df,
-    na.action = na.exclude
-  )
-  residuals (fitE)
-}
-
-doParallel::registerDoParallel(cores = 16)
-resid <- plyr::adply(mvalue_mat,1,.fun = lmF,.progress = "time",.parallel = TRUE)
-rownames(resid) <- resid[,1]
-resid[,1] <- NULL
-colnames(resid) <- colnames(mvalue_mat)
-
-saveRDS(
-  resid,
-  paste0(data.dir.residuals,"LONDON_blood_QNBMIQ_PCfiltered_mvalResiduals.RDS")
-)
-```
-
-```{R, eval = FALSE}
-##### 4. Find co-methylated regions ############################################
-### Import datasets
-mvalue_residuals_mat <- readRDS(
-  paste0(data.dir.residuals, "LONDON_blood_QNBMIQ_PCfiltered_mvalResiduals.RDS")
-)
-
-### Call in functions
-library(coMethDMR)
-library(BiocParallel)
-
-probes.cluster.all <- coMethDMR::getPredefinedCluster(arrayType = "450k",
-                                                      clusterType = "regions")
-
-ncores <- 10
-### Find co-methylated clusters
-coMeth_ls <- CoMethAllRegions(
-  dnam = mvalue_residuals_mat,      
-  betaToM = FALSE,                   
-  CpGs_ls = probes.cluster.all,
-  arrayType = "450k",
-  rDropThresh_num = 0.4,
-  minPairwiseCorr = NULL,
-  method = "spearman",             
-  returnAllCpGs = TRUE,              
-  output = "all",
-  nCores_int = ncores,
-  progressbar = FALSE
-)
-
-saveRDS(
-  coMeth_ls,
-  paste0(data.dir.residuals,"LONDON_blood_residuals_cometh_input_ls.RDS")
-)
-```
-
-
-## Linear regression by regions median Methylation 
-
-1. Calculate medians by cluster and sample
-2. linear regression
-
-Input: 
-
-- QNBMIQ_PCfiltered,
-- pheno_withNeuronProp_df
-- residuals_cometh_input_ls
-
-Output: 
-
-- info_df
-- mediansMval_df
-- linear_df_aging
-
-### Calculate medians by cluster and sample
-
-```{R, eval = FALSE}
-cohort <- "LONDON_blood"
-
-### Import datasets
-beta_mat <- readRDS(dir(data.dir.pca, pattern = "QNBMIQ", full.names = TRUE))
-pheno_df <- readRDS(dir(data.dir.neuron,full.names = T)) 
-mval_mat <- log2(beta_mat / (1 - beta_mat)) %>% as.matrix()
-coMeth_ls <- readRDS(
-  paste0(data.dir.residuals, "LONDON_blood_residuals_cometh_input_ls.RDS")
-)
-
-### Create info dataset
-input_cometh <- data.frame(
-  inputRegion = coMeth_ls$inputRegion_chr,
-  nCoMethRegion = coMeth_ls$nCoMethRegions_num,
-  coMethRegion = names(coMeth_ls$coMeth_ls),
-  nCpGs = unlist(lapply(coMeth_ls$coMeth_ls, length), use.names = FALSE),
-  stringsAsFactors = FALSE
-)
-
-input_cometh_nodup <- input_cometh[
-  !duplicated(input_cometh$coMethRegion),
-]
-colnames(input_cometh_nodup) <- c(
-  paste0(cohort, "_inputRegion"),
-  paste0(cohort, "_nCoMethRegion"),
-  paste0(cohort, "_coMethRegion"),
-  paste0(cohort, "_nCpGs")
-)
-
-saveRDS(
-  input_cometh_nodup,
-  paste0(data.dir.median,  cohort, "_info_df.rds")
-)
-
-### Take median of probes in each cluster for each sample
-filename <-  paste0(paste0(data.dir.median, cohort, "_mediansMval_df.rds"))
-
-library(robustbase)
-mval_mat <- mval_mat[rownames(mval_mat) %in% unlist(coMeth_ls$coMeth_ls),]
-if(!file.exists(filename)){
-  medianMval.df <- plyr::ldply(
-    coMeth_ls$coMeth_ls[!duplicated(names(coMeth_ls$coMeth_ls))],
-    function(probes){
-      colMedians(mval_mat[as.character(probes),], na.rm = TRUE)
-    },
-    .progress = "time"
-  )
-  medianMval.df$.id <- NULL
-  colnames(medianMval.df) <- colnames(mval_mat)
-  saveRDS(medianMval.df, file = filename)
-} else {
-  medianMval.df <- readRDS(filename)
-}
-```
-
-### Test all regions -- linear regressions
-
-```{R, eval = TRUE}
-### Import datasets
-cohort <- "LONDON_blood"
-info_df <- readRDS(dir(data.dir.median,pattern = "info", full.names = TRUE))
-mediansMval_df <- readRDS(dir(data.dir.median,pattern = "mediansMval", full.names = TRUE))
-pheno_df <- readRDS(dir(data.dir.neuron, full.names = TRUE))
-
-### Check variables before fitting model
-pheno_df$Sample <- pheno_df$sample
-
-identical(pheno_df$Sample, colnames(mediansMval_df))
-
-pheno_df$sex <- as.factor(pheno_df$sex)
-pheno_df$slide <- as.factor(pheno_df$slide)
-
-str(pheno_df)
-```
-
-```{R, eval = FALSE}
-# If rosmap cohort, don't forget batch effect
-predictors_char <- "status"
-covariates_char <- c(
-  "age.blood", "sex", "slide",
-  "B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"
-)
-devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
-
-res_df <- TestAllRegions_noInfo(
-  predictors_char = predictors_char,
-  covariates_char = covariates_char,
-  pheno_df = pheno_df,
-  summarizedRegions_df = mediansMval_df
-)
-
-colnames(res_df) <- c(
-  paste0(cohort, "_estimate"),
-  paste0(cohort, "_se"),
-  paste0(cohort, "_pVal"),
-  paste0(cohort, "_fdr")
-)
-
-res_withInfo_df <- cbind(info_df, res_df)
-
-saveRDS(
-  res_withInfo_df,
-  paste0(data.dir.median, cohort, "_linear_df.rds")
-)
-```
-
-```{R}
-file <- dir(data.dir.median,pattern = paste0(cohort,"_linear_df"),
-            recursive = T,
-            full.names = TRUE,
-            ignore.case = T)
-file
-res_withInfo_df <- readRDS(file)
-dim(res_withInfo_df)
-res_withInfo_df
-```
-
-# DMRs Validation
-
-```{R, eval = FALSE}
-### Call in datasets
-main_dmrs <- read.csv(
-    "meta_analysis_region_results/step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"
-) #dim:119 60
-blood_dmrs <- readRDS(
-  dir(data.dir.median,pattern = "London_blood_linear_df.RDS",ignore.case = TRUE,full.names = T)
-) #dim: 40104 8
-
-### select the most significant cluster for each input region 
-london_blood_selected <- blood_dmrs %>%
-  group_by(LONDON_blood_inputRegion) %>%
-  filter(LONDON_blood_pVal == min(LONDON_blood_pVal))
-
-
-### select the most significant cluster for each input region  
-london_blood_metaSig <- london_blood_selected[
-  match(
-    main_dmrs$inputRegion,
-    london_blood_selected$LONDON_blood_inputRegion
-  ),
-]
-london_blood_metaSig <- london_blood_metaSig[
-  !is.na(london_blood_metaSig$LONDON_blood_inputRegion),
-]
-dim(london_blood_metaSig)
-# [1] 119   8
-
-### calculate validation fdr
-london_blood_metaSig$LONDON_blood_validation_fdr <- p.adjust(
-  london_blood_metaSig$LONDON_blood_pVal, method = "fdr"
-)
-
-### add annotation
-london_blood_metaSig_withAnnot <- merge(
-  main_dmrs[,1:5], 
-  london_blood_metaSig,
-  by.x = "inputRegion",
-  by.y = "LONDON_blood_inputRegion",
-  sort = FALSE
-)
-write.csv(
-  london_blood_metaSig_withAnnot,
-  paste0(data.dir.validation, "validation_london_blood.csv"),
-  row.names = FALSE
-)
-```
-
-# Linear regression by single cpgs 
-
-```{R, eval = TRUE}
-### Import datasets
-beta_mat <- readRDS(
-    paste0(data.dir.pca, "London_QNBMIQ_PCfiltered.RDS")
-) 
-pheno_df <- readRDS(
- dir(data.dir.neuron,
-     pattern =  "pheno_BLOOD_withBloodProp_df.RDS",
-     ignore.case = TRUE,
-     full.names = TRUE)
-)
-
-pheno_df$Sample <- pheno_df$sample
-
-identical(pheno_df$Sample, colnames(beta_mat))
-
-### Compute M values
-mval_mat <- log2(beta_mat / (1 - beta_mat))
-
-pheno_df$sex <- as.factor(pheno_df$sex)
-pheno_df$slide <- as.factor(pheno_df$slide)
-
-str(pheno_df)
-
-is(pheno_df$age.blood, "numeric")
-```
-
-```{R, eval = FALSE}
-predictors_char <- "status"
-covariates_char <- c(
-  "age.blood", "sex", "slide",
-  "B", "NK", "CD4T", "CD8T", "Mono", "Neutro", "Eosino"
-)
-
-doParallel::registerDoParallel(cores = parallel::detectCores()/2)
-devtools::source_gist("https://gist.github.com/tiagochst/d3a7b1639acf603916c315d23b1efb3e")
-
-results_ordered_df <- plyr::adply(mval_mat,1, function(row){
-  
-  sumOneRegion_df <- as.data.frame(t(row))
-  
-  result <- TestSingleRegion(
-    predictors_char = predictors_char,
-    covariates_char = covariates_char,
-    pheno_df = pheno_df,
-    sumOneRegion_df = sumOneRegion_df
-  )
-  result
-},
-.progress = "time",
-.parallel = TRUE,
-.id = "cpg")
-colnames(results_ordered_df)[1] <- "cpg"
-
-identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
-
-write.csv(
-  results_ordered_df,
-  paste0(data.dir.median, "London_blood_single_cpg_linear_df.csv"),
-  row.names = FALSE
-)
-```
-
-```{R}
-results_ordered_df <- readr::read_csv(
-    paste0(data.dir.median, "London_blood_single_cpg_linear_df.csv")
-)
-results_ordered_df
-```
-
-# CpGs Validation
-
-```{R, eval = FALSE}
-### Call in datasets
-main_cpgs <- read.csv(
-    "meta_analysis_single_cpg_results/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv"
-) #dim:3751 28
-blood_cpgs <- read.csv(
-    paste0(data.dir.median, "London_blood_single_cpg_linear_df.csv")
-) #dim: 450793 4
-
-### subset validation datasets with significant cpgs in meta analysis
-blood_metaSig <- blood_cpgs[
-  match(
-      as.character(main_cpgs$cpg),
-      as.character(blood_cpgs$cpg)
-  ),
-]
-blood_metaSig <- blood_metaSig[
-  !is.na(blood_metaSig$cpg),
-]
-dim(blood_metaSig)
-# [1] 3751    4
-
-### calculate validation fdr
-blood_metaSig$validation_fdr <- p.adjust(
-  blood_metaSig$pValue, method = "fdr"
-)
-
-### add annotation
-blood_metaSig_withAnnot <- merge(
-  main_cpgs[,1:8], blood_metaSig,
-  by.x = "cpg",
-  by.y = "cpg",
-  sort = FALSE
-)
-
-write.csv(
-  blood_metaSig_withAnnot,
-  paste0(data.dir.validation, "validation_single_cpg_blood.csv"),
-  row.names = FALSE
-)
-```
-
-# Data final
-
-```{R}
-dir(path = data.dir,recursive = T,pattern = ".rda|.csv|.RDS")
 ```
 
 # Session information
