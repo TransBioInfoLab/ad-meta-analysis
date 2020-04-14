@@ -305,8 +305,8 @@ Description:
 
 1. estimate standard deviation for each probe
 2. select most variable probes (e.g. n = 50,000)
-3. pca plot
-4. Filter outliers
+3. pca analysis
+4. filter outliers
 
 Input: 
 
@@ -383,7 +383,10 @@ d$outlier_PC2[d$PC2 >= out3sdPC2_1 & d$PC2 <= out3sdPC2_2] <- 0
 d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
 
 write.csv(d, paste0(data.dir.pca, "London_PFC_PCs_usingBetas.csv"))
+```
 
+
+```{R, include = FALSE, eval = FALSE}
 
 ##### 2.PCA plot ###############################################################
 library(ggplot2)
@@ -526,7 +529,6 @@ head(refProfile)
 pfc <- readRDS(paste0(data.dir.pca, "London_PFC_QNBMIQ_PCfiltered.RDS")) #dim: 433656 59
 
 selected <- rownames(pfc) %in% rownames(refProfile)
-table(selected)
 
 pfc.refcpgs <- pfc[selected, ] #dim: 9530 59
 
@@ -546,7 +548,6 @@ pheno_final <- merge(
 )
 
 saveRDS(pheno_final, paste0(data.dir.neuron, "pheno107_PFC_withNeuronProp_df.RDS"))
-pheno_final %>% head
 ```
 
 # Linear regression by cpgs Methylation 
