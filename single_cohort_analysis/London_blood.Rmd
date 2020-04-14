@@ -99,14 +99,17 @@ write.csv(phenoData, paste0(data.dir.raw, "GSE59685_pheno.csv"))
 
 Description:
 
- Subset Files
- 1. subset pheno data to
-  1) whole blood tissue 
-  2) variables -- sample, subject_id, sentrix_id, slide, age, sex, stage
- 2. subset methylation data to match subjects in pheno data
+Subset Files
 
- Input: GSE59685_pheno.csv, GSE59685_assay.RDS
- Output: pheno_BLOOD_df.RDS, beta110_BLOOD_mat.RDS
+1. subset pheno data to
+  - whole blood tissue 
+  - variables -- sample, subject_id, sentrix_id, slide, age, sex, stage
+
+2. subset methylation data to match subjects in pheno data
+
+Input: GSE59685_pheno.csv, GSE59685_assay.RDS
+
+Output: pheno_BLOOD_df.RDS, beta110_BLOOD_mat.RDS
 
 
 
@@ -114,8 +117,11 @@ Description:
 ##### 1. Subset pheno data #####################################################
 
 ### Read in phenotype data
-phenoRaw_df <- readr::read_csv(paste0(data.dir.raw, "GSE59685_pheno.csv")) #dim: 531 49
-
+phenoRaw_df <- readr::read_csv(
+  paste0(data.dir.raw, "GSE59685_pheno.csv"),
+  col_types = readr::cols()
+) 
+dim(phenoRaw_df)
 ### Subset rows and columns
 
 ### Subset rows and columns
@@ -123,7 +129,7 @@ phenoBLOOD_df <- phenoRaw_df[
   (phenoRaw_df$source_name_ch1 == "whole blood"),
   c("geo_accession", "subjectid.ch1", "barcode.ch1",
     "age.blood.ch1", "Sex.ch1", "ad.disease.status.ch1", "braak.stage.ch1")
-]
+  ]
 
 ### Rename vars
 colnames(phenoBLOOD_df) <- c(
@@ -139,7 +145,7 @@ phenoBLOOD_df$status <- as.character(phenoBLOOD_df$status)
 phenoBLOOD_df$stage <- as.integer(as.character(phenoBLOOD_df$stage))
 
 ### Get slide from sentrix_id
-  # e.g. "6042316048_R05C01"(sentrix_id) -- "6042316048"(slide) and "R05C01"(array)
+# e.g. "6042316048_R05C01"(sentrix_id) -- "6042316048"(slide) and "R05C01"(array)
 sentrixID_mat <- do.call(rbind, strsplit(phenoBLOOD_df$sentrix_id, "_"))
 phenoBLOOD_df$slide <- sentrixID_mat[, 1]
 
@@ -173,13 +179,13 @@ saveRDS(beta_mat, paste0(data.dir.clinical.filter, "beta_BLOOD_withStatusExclude
 
 ## Probes QC
 
- 1. keep only probes that start with "cg"
- 2. drop probes that are on X/Y
- 3. drop probes where SNP with MAF >= 0.01 was present in the last 5 bp of the probe.
+1. keep only probes that start with "cg"
+2. drop probes that are on X/Y
+3. drop probes where SNP with MAF >= 0.01 was present in the last 5 bp of the probe.
 
- Input: beta110_PFC_mat.RDS
- 
- Output: beta110_PFC_CG_XY_SNPfiltered_mat.RDS
+Input: beta110_PFC_mat.RDS
+
+Output: beta110_PFC_CG_XY_SNPfiltered_mat.RDS
 
 ```{R}
 ##### 1. keep on probes with start with "cg" ###################################
@@ -223,14 +229,14 @@ saveRDS(
 
 - Quantile normalization and BMIQ normalization
 
- Input: 
- 
- - beta_CG_XY_SNPfiltered_mat.RDS
- - pheno_PFC_df.RDS
- - full.annot.RDS
- 
- Output: 
- 
+Input: 
+
+- beta_CG_XY_SNPfiltered_mat.RDS
+- pheno_PFC_df.RDS
+- full.annot.RDS
+
+Output: 
+
 - London_PFC_QNBMIQ.RDS
 
 ### Quantile normalization
@@ -274,11 +280,11 @@ type12 <- annotType$designTypeNumeric[match(rownames(betaQN),names(annotType))]
 set.seed (946)
 doParallel::registerDoParallel(cores = 8)
 betaQN_BMIQ <- plyr::aaply(
-    betaQN, 2,
-    function(x){
-        norm_ls <- BMIQ(x, design.v = type12, plots = FALSE)
-        return (norm_ls$nbeta)
-    },.progress = "time",.parallel = TRUE
+  betaQN, 2,
+  function(x){
+    norm_ls <- BMIQ(x, design.v = type12, plots = FALSE)
+    return (norm_ls$nbeta)
+  },.progress = "time",.parallel = TRUE
 ) %>% t()
 
 saveRDS(betaQN_BMIQ, paste0(data.dir.probes.normalization, "London_BLOOD_QNBMIQ_withStatusExclude.RDS"))
@@ -307,7 +313,7 @@ Input:
 
 Output: 
 
-- PCs_usingBetas.csv, 
+- PCs_usingBetas.csv
 - PCA plots
 - QNBMIQ_PCfiltered.RDS
 - pheno_df.RDS
@@ -459,27 +465,29 @@ pheno_df %>%
 
 
 ```{R}
-df.samples <- data.frame("Number of samples" =  c(nb.samples, 
-                                                  nb.samples.with.clinical, 
-                                                  nb.samples.with.clinical.after.pca),
-                         "Description" = c("total number of samples",
-                                           "samples with clinical data",
-                                           "Samples after PCA"),
-                         "Difference" = c("-",
-                                          nb.samples.with.clinical - nb.samples ,
-                                          nb.samples.with.clinical.after.pca - nb.samples.with.clinical)
+df.samples <- data.frame(
+  "Number of samples" =  c(nb.samples, 
+                           nb.samples.with.clinical, 
+                           nb.samples.with.clinical.after.pca),
+  "Description" = c("total number of samples",
+                    "samples with clinical data",
+                    "Samples after PCA"),
+  "Difference" = c("-",
+                   nb.samples.with.clinical - nb.samples ,
+                   nb.samples.with.clinical.after.pca - nb.samples.with.clinical)
 )    
 df.samples                     
 # Create summary table
-df.probes <- data.frame("Number of probes" = c(nb.probes,
-                                               nb.probes.cg, 
-                                               nb.probes.cg.dmrcate),
-                        "Description" = c("total number of probes in raw data",
-                                          "only probes that start with cg",
-                                          "DMRcate"),
-                        "Difference" = c("-",
-                                         nb.probes.cg - nb.probes ,
-                                         nb.probes.cg.dmrcate - nb.probes.cg)
+df.probes <- data.frame(
+  "Number of probes" = c(nb.probes,
+                         nb.probes.cg, 
+                         nb.probes.cg.dmrcate),
+  "Description" = c("total number of probes in raw data",
+                    "only probes that start with cg",
+                    "DMRcate"),
+  "Difference" = c("-",
+                   nb.probes.cg - nb.probes ,
+                   nb.probes.cg.dmrcate - nb.probes.cg)
 )
 df.probes
 save(df.samples,df.probes,file = file.path(data.dir.table, "LONDON_blood_table.rda"))
