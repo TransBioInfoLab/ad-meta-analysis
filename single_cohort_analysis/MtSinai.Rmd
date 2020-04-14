@@ -265,7 +265,7 @@ Description:
 
 1. estimate standard deviation for each probe
 2. select most variable probes (e.g. n = 50,000)
-3. PCA plot
+3. PCA analysis
 4. Filter outliers
 
 Input: 
@@ -347,7 +347,8 @@ d$outlier_PC2[d$PC2 < out3sdPC2_1 | d$PC2 > out3sdPC2_2] <- 1
 readr::write_csv(d, paste0(data.dir.pca, "MtSinai_PCs_usingBetas.csv"))
 ```
 
-```{R}
+```{R, include = FALSE, eval = FALSE}
+
 ##### 2.PCA plot ###############################################################
 
 library(ggplot2)
@@ -395,9 +396,11 @@ bySex <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
+```
 
+
+```{R}
 ##### 3.Filter samples by PCA, save files ######################################
-
 noOutliers <- d[which(d$outlier_PC1 == 0 & d$outlier_PC2 == 0), ]
 betaQN_BMIQ_PCfiltered <- beta_mat[, rownames(noOutliers)] #dim: 437713 141
 saveRDS(betaQN_BMIQ_PCfiltered, paste0(data.dir.pca, "MtSinai_QNBMIQ_PCfiltered.RDS"))
@@ -479,7 +482,6 @@ idx <- list(
 )
 
 refProfile <- getReference(brain, idx)
-head(refProfile)
 
 
 ##### 2. Estimate proportions of neurons in PFC samples ########################
@@ -488,7 +490,6 @@ head(refProfile)
 pfc <- readRDS(paste0(data.dir.pca, "MtSinai_QNBMIQ_PCfiltered.RDS")) #dim: 433656 59
 
 selected <- rownames(pfc) %in% rownames(refProfile)
-table(selected)
 
 pfc.refcpgs <- pfc[selected, ] #dim: 9530 59
 
@@ -508,7 +509,6 @@ pheno_final <- merge(
 )
 
 saveRDS(pheno_final, paste0(data.dir.neuron, "pheno141_withNeuronProp_df.RDS"))
-pheno_final %>% head
 ```
 
 # Linear regression by cpgs Methylation 
