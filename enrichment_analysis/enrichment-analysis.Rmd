@@ -133,11 +133,23 @@ plot.chrm.hyper <- cpGsEnrichment(
   bg.label = paste0("Evaluated probes (n = ",
                     length(meta_all_probes)))
 
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island
 ```
 
 
@@ -161,11 +173,25 @@ plot.chrm.hyper <- cpGsEnrichment(
   bg.label = paste0("Evaluated probes (n = ",
                     length(meta_all_probes)))
 
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+
+
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.gene
 ```
 
 ### ChroMHMM
@@ -192,7 +218,7 @@ plot.chrm.hypo <- cpGsEnrichment(
                     length(meta_all_probes),")"),
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_region_neg_estimate_chromHMM_states.png"
-  )
+)
 #plot.chrm.hypo$plot
 
 plot.chrm.hyper <- cpGsEnrichment(
@@ -225,11 +251,29 @@ region.cpg.plot$plot
 ```
 
 ```{R}
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm
+```
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.region <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
 ```
 
 ## For single cpgs
@@ -291,11 +335,23 @@ plot.chrm.hyper <- cpGsEnrichment(
   bg.label = paste0("Evaluated probes (n = ",
                     length(meta_all_probes)))
 
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island
 ```
 
 
@@ -318,11 +374,23 @@ plot.chrm.hyper <- cpGsEnrichment(
   bg.label = paste0("Evaluated probes (n = ",
                     length(meta_all_probes)))
 
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.gene
 ```
 
 
@@ -390,12 +458,36 @@ single.cpg.plot$plot
 
 
 ```{R}
-cbind(data.frame("Analysis" = c(rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
-                                rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
-                                )),
-                  rbind(plot.chrm.hyper$table[,c(1,6,7)],
-      plot.chrm.hypo$table[,c(1,6,7)]))
+
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm
 ```
+
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.cpg <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
+colnames(tab.all.cpg)[5:6] <- paste0("cpg_",colnames(tab.all.cpg)[5:6])
+colnames(tab.all.region)[5:6] <- paste0("dmr_",colnames(tab.all.cpg)[5:6])
+tab.all <- merge(tab.all.region[,-1],tab.all.cpg[,-1])
+readr::write_csv(tab.all,path = "Enrichment_analysis_OR_pvalue.csv")
+```
+
 
 # Pathway analysis 
 
@@ -594,9 +686,9 @@ cpg_all <- read.csv(
 ) #dim: 450793 24
 
 cpg_sig_hyper_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
-    filter(estimate > 0)
+  filter(estimate > 0)
 cpg_sig_hypo_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
-    filter(estimate < 0)
+  filter(estimate < 0)
 
 ### Turn input regions into GRanges
 library(GenomicRanges)
