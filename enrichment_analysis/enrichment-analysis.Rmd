@@ -1,5 +1,5 @@
 ---
-title: "Meta-analysis dataset"
+title: "Enrichment analysis"
 author: " Tiago C. Silva, Lanyu Zhang, Lily Wang"
 date: "`r Sys.Date()`"
 output:
@@ -178,7 +178,10 @@ states <- readr::read_csv("../../DNAm_RNA/data/chromHMM_labels.csv",col_names = 
 states$X1 <- paste0("E",states$X1)
 ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
 ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
 
+
+```{R, include = FALSE}
 plot.chrm.hypo <- cpGsEnrichment(
   fg.probes = meta_sig_neg_est,
   bg.probes = meta_all_probes,
@@ -204,7 +207,9 @@ plot.chrm.hyper <- cpGsEnrichment(
   plot.filename = "plots/meta_analysis_region_pos_est_chromHMM_states.png"
 )
 #plot.chrm.hyper$plot
+```
 
+```{R}
 region.cpg.plot <-
   cpGsGenomicFeatures(
     list("Evaluated probes (n = 203198)" = meta_all_probes,
@@ -339,7 +344,9 @@ states <- readr::read_csv(
 states$X1 <- paste0("E",states$X1)
 ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
 ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
 
+```{R, include = FALSE}
 plot.chrm.hypo <- cpGsEnrichment(
   fg.probes = foreground.probes.neg.est,
   bg.probes = background.probes,
@@ -365,7 +372,9 @@ plot.chrm.hyper <- cpGsEnrichment(
   enrichment.type = "customized",
   plot.filename = "plots/meta_analysis_single_cpg_pos_est_chromHMM_states.png")
 #plot.chrm.hyper$plot
+```
 
+```{R}
 single.cpg.plot <- cpGsGenomicFeatures(
   list("Evaluated probes (n = 450793)" = background.probes,
        "Significant w/ Negative estimate (n = 1552)" = foreground.probes.neg.est,
