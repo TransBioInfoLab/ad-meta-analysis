@@ -1,6 +1,6 @@
 ---
 title: "ROSMAP dataset"
-author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+author: "Lanyu Zhang, Tiago C. Silva, Lissette Gomez, Lily Wang"
 date: "`r Sys.Date()`"
 output:
   rmarkdown::html_document:
@@ -161,7 +161,7 @@ save(RGSet,
 load(file = paste0(data.dir.bsfilter, "RGSet_bsfiltered.rda"))
 ```
 
-```{R}
+```{R, include = FALSE, eval = FALSE}
 ggpubr::gghistogram(bs$bisulfiteConversion,xlab = "bisulfite Conversion" )
 ```
 
@@ -189,9 +189,6 @@ save(betaSet,
 load(paste0(data.dir.clinical.filter, "/ROSMAPbetaMatrixraw737ind.rda"))
 nb.samples.with.slide <- ncol(betaSet)
 nb.probes <- nrow(betaSet)
-plyr::count(phenoData$Sample_Plate)
-plyr::count(phenoData$Sentrix_Position)
-
 
 #--------------------------------------------------
 # Read metadata
@@ -229,11 +226,6 @@ dim(phenoData) #743  10
 # data in both clinical & pheno data
 phenoData <- merge(phenoData, clinical, by.x = "Sample", by.y = "mwas_id")
 phenoData <- unique(subset(phenoData, select = Sample:cogdx))
-
-plyr::count(phenoData$Sample %in% colnames(betaSet))
-plyr::count(phenoData$braaksc)
-# 0   1   2   3   4   5   6
-# 9  62  78 217 199 157   7
 
 betaSet <- betaSet[,colnames(betaSet) %in% phenoData$Sample]
 phenoData <- phenoData[match(colnames(betaSet),phenoData$Sample),]
@@ -393,7 +385,7 @@ Description:
 
 1. estimate standard deviation for each probe
 2. select most variable probes (e.g. n = 50,000)
-3. pca plot
+3. pca analysis
 4. Filter outliers
 
 Input: 
@@ -487,7 +479,7 @@ library(ggrepel)
 phenoData$sample <- phenoData$Sample
 ```
 
-```{R, eval = FALSE}
+```{R, eval = FALSE, include = FALSE}
 # beta values
 byStage <- plotPCA(
   dataset = "ROSMAP: beta values",
@@ -498,9 +490,7 @@ byStage <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 bySex <- plotPCA(
   dataset = "ROSMAP: beta values",
   expSorted_mat = betaOrd_mat,
@@ -510,9 +500,7 @@ bySex <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 byBatch <- plotPCA(
   dataset = "ROSMAP: beta values",
   expSorted_mat = betaOrd_mat,
@@ -522,9 +510,7 @@ byBatch <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 byRace <- plotPCA(
   dataset = "ROSMAP: beta values",
   expSorted_mat = betaOrd_mat,
@@ -534,9 +520,7 @@ byRace <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 byApoe <- plotPCA(
   dataset = "ROSMAP: beta values",
   expSorted_mat = betaOrd_mat,
@@ -546,9 +530,7 @@ byApoe <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R pca_m_stage, eval = FALSE}
 # M values
 byStage <- plotPCA(
   dataset = "ROSMAP: M values",
@@ -559,9 +541,7 @@ byStage <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R pca_m_sex, eval = FALSE}
 bySex <- plotPCA(
   dataset = "ROSMAP: M values",
   expSorted_mat = mOrd_mat,
@@ -571,9 +551,7 @@ bySex <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R pca_m_batch, eval = FALSE}
 byBatch <- plotPCA(
   dataset = "ROSMAP: M values",
   expSorted_mat = mOrd_mat,
@@ -583,9 +561,7 @@ byBatch <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 byRace <- plotPCA(
   dataset = "ROSMAP: M values",
   expSorted_mat = mOrd_mat,
@@ -595,9 +571,7 @@ byRace <- plotPCA(
   center = TRUE,
   scale = TRUE
 )
-```
 
-```{R, eval = FALSE}
 byApoe <- plotPCA(
   dataset = "ROSMAP: M values",
   expSorted_mat = mOrd_mat,
@@ -621,8 +595,6 @@ phenoData <- phenoData [phenoData$Sample %in% rownames(noOutliers) ,]
 dim(phenoData)
 saveRDS(phenoData, file.path(data.dir.pca,"pheno_PCfiltered.RDS"))
 ```
-
-
 
 # Summary after QC steps
 
@@ -728,22 +700,12 @@ pheno_final <- merge(
 saveRDS(pheno_final, paste0(data.dir.neuron, "pheno_PFC_withNeuronProp_df.RDS"))
 ```
 
-```{R}
+```{R, include = FALSE, eval = FALSE}
 pheno_final <- readRDS(paste0(data.dir.neuron, "pheno_PFC_withNeuronProp_df.RDS"))
-pheno_final %>% head
 ```
 
 
 # Linear regression by cpgs Methylation 
-
-Input: 
-
-- Gasparoni_QNBMIQ_PCfiltered.RDS,
-- pheno59_withNeuronProp_df.RDS
-
-Output:
-
-- Gasparoni_single_cpg_pVal_df.csv
 
 ## Import datasets
 
@@ -771,7 +733,7 @@ is(pheno_df$braaksc,"numeric")
 is(pheno_df$age.brain,"numeric")
 is(pheno_df$prop.neuron,"numeric")
 
-str(pheno_df)
+#str(pheno_df)
 ```
 
 ```{R,  eval = FALSE}
@@ -1008,7 +970,7 @@ pheno_df$Sample <- pheno_df$Sample_Group
 
 identical(pheno_df$Sample, colnames(mediansMval_df))
 
-str(pheno_df)
+#str(pheno_df)
 
 pheno_df$msex <- as.factor(pheno_df$msex)
 pheno_df$Slide <- as.factor(pheno_df$Slide)
@@ -1025,7 +987,7 @@ is(pheno_df$braaksc,"numeric")
 is(pheno_df$age.brain,"numeric")
 is(pheno_df$prop.neuron,"numeric")
 
-str(pheno_df)
+#str(pheno_df)
 ```
 
 ```{R, eval = FALSE}
