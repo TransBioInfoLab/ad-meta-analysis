@@ -111,6 +111,7 @@ all.plot.region <-
 
 plot.region.cpg <- all.plot.region$plot + ggtitle("Region meta-analysis probes") 
 ggsave(plot = plot.region.cpg,width = 9,filename = "plots/meta_analysis_region_enrichment.pdf")
+plot.region.cpg
 ```
 
 ```{R, message = FALSE, echo = FALSE}
@@ -319,21 +320,23 @@ ggsave(plot = plot.single.cpg,width = 9,filename = "plots/meta_analysis_single_c
 ```{R, message = FALSE, echo = FALSE}
 plot.chrm.hypo <- cpGsEnrichment(
   fg.probes = foreground.probes.neg.est,
-  bg.probes = meta_all_probes,
+  bg.probes = background.probes,
   enrichment.type = "island",
   fg.label = paste0("Significant probes w/ Negative estimate (n = ",
                     length(foreground.probes.neg.est)),
   bg.label = paste0("Evaluated probes (n = ",
-                    length(meta_all_probes)))
+                    length(background.probes))
+  )
 
 plot.chrm.hyper <- cpGsEnrichment(
   fg.probes = foreground.probes.pos.est,
-  bg.probes = meta_all_probes,
+  bg.probes = background.probes,
   enrichment.type = "island",
   fg.label = paste0("Significant probes w/ Positive estimate (n = ",
                     length(foreground.probes.pos.est)),
   bg.label = paste0("Evaluated probes (n = ",
-                    length(meta_all_probes)))
+                    length(background.probes))
+  )
 
 tab.island <- cbind(
    data.frame(
@@ -358,21 +361,21 @@ tab.island
 ```{R, message = FALSE, echo = FALSE}
 plot.chrm.hypo <- cpGsEnrichment(
   fg.probes = foreground.probes.neg.est,
-  bg.probes = meta_all_probes,
+  bg.probes = background.probes,
   enrichment.type = "gene",
   fg.label = paste0("Significant probes w/ Negative estimate (n = ",
                     length(foreground.probes.neg.est)),
   bg.label = paste0("Evaluated probes (n = ",
-                    length(meta_all_probes)))
+                    length(background.probes)))
 
 plot.chrm.hyper <- cpGsEnrichment(
   fg.probes = foreground.probes.pos.est,
-  bg.probes = meta_all_probes,
+  bg.probes = background.probes,
   enrichment.type = "gene",
   fg.label = paste0("Significant probes w/ Positive estimate (n = ",
                     length(foreground.probes.pos.est)),
   bg.label = paste0("Evaluated probes (n = ",
-                    length(meta_all_probes)))
+                    length(background.probes)))
 
 tab.gene <- cbind(
  data.frame(
