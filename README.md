@@ -1,20 +1,9 @@
-# DNA methylation changes associated with Alzheimer’s Disease pathology: an epigenome-wide meta-analysis of prefrontal cortex brain samples
-
+# Epigenome-wide meta-analysis of DNA methylation changes in prefrontal cortex highlights the immune processes in Alzheimer’s Disease 
 Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt, Kara Lyn Hamilton-Nelson, Brian Kunkle, Xi Chen, Eden R. Martin, Lily Wang
 
 ### Description
 
-Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) 
-and the inconsistencies often observed in different studies, we conducted a 
-meta-analysis of more than one thousand prefrontal cortex brain samples, 
-to prioritize the most consistent methylation changes in multiple cohorts. 
-Using an uniform analysis pipeline, we identified 119 DMRs and 3751 significant CpGs 
-that are consistently associated with AD Braak stage across cohorts. 
-Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights. 
-For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. 
-Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. 
-Our enrichment analysis also highlighted the particular relevant roles of the immune system and PRC2 in AD. 
-These results will be a valuable resource to facilitate future mechanistic and biomarker discovery studies. 
+Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) and the inconsistencies often observed in different studies, we conducted a meta-analysis of more than one thousand prefrontal cortex brain samples, to prioritize the most consistent methylation changes in multiple cohorts. Using a uniform analysis pipeline, we identified 3751 CpGs and 119 DMRs significantly associated with Braak stage. Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights into epigenetics of AD. For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. Our enrichment analysis highlighted the particular relevant roles of the immune system and polycomb repressive complex 2 in AD. These results will help facilitate future mechanistic and biomarker discovery studies in AD.
 
 ### Single cohort analysis
 
