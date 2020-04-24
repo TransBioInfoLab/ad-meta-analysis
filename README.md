@@ -87,8 +87,7 @@ except by removing age at death effect in the linear models.
 
 Using the London cohort which consisted of 69 pairs of samples with matched PFC and blood samples, 
 we compared brain-blood methylation levels in significant CpGs and those CpGs mapped within significant DMRs using Spearman correlations. 
-Two approaches were used to quantify methylation levels: using beta values, or using corrected methylation levels. 
-In addition, we also conducted look up analysis using the BeCon tool, which compared 
+Two approaches were used to quantify methylation levels: using beta values, or using corrected methylation levels (after removing effects of cell type, batch, age at death and sex). In addition, we also conducted look up analysis using the BeCon tool, which compared 
 brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem samples of 16 subjects. 
 
 | File                 |    HTML                  | 
