@@ -37,29 +37,15 @@ Each of the files has the following sections:
 
 To meta-analyze individual CpG results across different cohorts, we used the meta R package. 
 For region based meta-analysis, we used two complementary analytical pipelines, 
-the comb-p approach and the coMethDMR approach: 
+the comb-p approach and the coMethDMR approach. The significant DMRs were selected by both approaches.  
 
-(1) comb-p appraoch - we used meta-analysis p-values of the four brain samples discovery cohorts as input for comb-p. 
+(1) comb-p appraoch - we used meta-analysis p-values of the four brain samples cohorts as input for comb-p. 
 
-(2) coMethDMR approach - we performed cohort specific analysis for genomic regions first. 
-We define “contiguous genomic regions” to be genomic regions on the Illumina array covered 
-with clusters of contiguous CpGs where the maximum separation between any two consecutive 
-probes is 200 base pairs. Instead of testing all CpGs within a genomic region, 
-coMethDMR carries out an additional step that selects co-methylated sub-regions 
-within the contiguous genomic regions first. 
- 
-Next, we summarized methylation M values within these co-methylated sub-regions 
-using medians and tested them against AD Braak stage. We adjusted for potential 
-confounding factors including age at death, sex, methylation slide, and proportion 
-of different cell types in the samples estimated by the CETS R package. 
-For ROSMAP cohort, we additionally included variable "batch" that was available 
-in the dataset to adjust for technical batches occurred during data generation.    
+(2) coMethDMR approach - we performed cohort specific analysis for genomic regions first. First, coMethDMR selects co-methylated sub-regions within the contiguous genomic regions. Next, we summarized methylation M values within these co-methylated sub-regions using medians and tested them against AD Braak stage. 
 
-To meta-analyze coMethDMR results across different cohorts, first, 
-we assigned co-methylated clusters from each cohort to the non-overlapping 
-contiguous genomic regions that they overlap. The cohort specific p-values for 
-each contiguous genomic region were then combined across cohorts using fixed 
-effects meta-analysis model (or random effects model if test of heterogeneity had p-value was less than 0.05). 
+We adjusted for potential confounding factors including age at death, sex, batch, and proportion of different cell types. The cohort specific p-values for each contiguous genomic region were then combined across cohorts using fixed effects meta-analysis model (or random effects model if test of heterogeneity had p-value was less than 0.05). 
+
+Note that the coMethDMR approach allowed us to assess between cohort heterogeneities for genomic regions. 
 
 | File                 | HTML |
 |----------------------|----------------------|
