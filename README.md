@@ -36,6 +36,7 @@ Each of the files has the following sections:
 ### Meta-analysis 
 
 To meta-analyze individual CpG results across different cohorts, we used the meta R package. 
+
 For region based meta-analysis, we used two complementary analytical pipelines, 
 the comb-p approach and the coMethDMR approach. The significant DMRs were selected by both approaches.  
 
