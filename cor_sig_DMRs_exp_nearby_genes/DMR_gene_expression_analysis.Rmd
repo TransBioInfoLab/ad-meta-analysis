@@ -974,7 +974,7 @@ dmr_case$fdr.cases.adjusted <- p.adjust(
   dmr_case$pval.cases, method = "fdr"
 )
 
-dmr_case <- dmr_case[,c(1:5, 23,9:22)]
+dmr_case <- dmr_case[,c(1:4, 23,9:22)]
 dmr_case
 ```
 
@@ -994,7 +994,7 @@ dmr_control <- dmr.annot %>%
 dmr_control$fdr.controls.adjusted <- p.adjust(
   dmr_control$pval.controls, method = "fdr"
 )
-dmr_control <- dmr_control[,c(1:2, 6:8, 23,9:22)]
+dmr_control <- dmr_control[,c(1:2, 6:7, 23,9:22)]
 dmr_control
 ```
 
@@ -1059,7 +1059,7 @@ cpg_case <- cpg.annot %>%
 cpg_case$fdr.cases.adjusted <- p.adjust(
   cpg_case$pval.cases, method = "fdr"
 )
-cpg_case <- cpg_case[, c(1:5, 25, 15,17:24)]
+cpg_case <- cpg_case[, c(1:4, 25, 15,17:24)]
 cpg_case
 ```
 
@@ -1081,7 +1081,7 @@ cpg_control <- cpg.annot %>%
 cpg_control$fdr.controls.adjusted <- p.adjust(
   cpg_control$pval.controls, method = "fdr"
 )
-cpg_control <- cpg_control[, c(1:2,6:8, 25, 15, 17:24)]
+cpg_control <- cpg_control[, c(1:2,6:7, 25, 15, 17:24)]
 cpg_control
 ```
 
