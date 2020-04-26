@@ -67,7 +67,7 @@ The main regions/probe annotation used were:
 
 | File                 |                      | 
 |----------------------|----------------------|
-| enrichment_analysis/enrichment-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/5adfukotn6gaxfu/enrichment-analysis.html?dl=0)|
+| enrichment_analysis/enrichment-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_Enrichment_analysis)|
 
 ### Matched Meta-analysis
 
