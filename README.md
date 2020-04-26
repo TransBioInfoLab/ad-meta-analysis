@@ -81,7 +81,7 @@ except by removing age at death effect in the linear models.
 
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/zl0lavf5njx27t1/Matched-analysis.html?dl=0)|
+| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_matched_analysis)|
 
 ### Correlation of methylation changes in brain and blood samples
 
