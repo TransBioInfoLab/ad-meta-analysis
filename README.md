@@ -50,7 +50,7 @@ Note that the coMethDMR approach allowed us to assess between cohort heterogenei
 
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/Meta-analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/bxmhizaz11tyog7/Meta-analysis.html?dl=0)|
+| meta_analysis/Meta-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_Meta_analysis)|
 
 
 ### Enrichment analysis of significant DNA methylation changes 
