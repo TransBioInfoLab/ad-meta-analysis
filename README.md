@@ -29,7 +29,7 @@ Each of the files has the following sections:
 | File                 | Dataset | HTML |
 |----------------------|-------------|-------------| 
 | single_cohort_analysis/Gasparoni.Rmd        |   Gasparoni (Gasparoni, 2018) | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_Gasparoni_dataset)|
-| single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://www.dropbox.com/s/t56dakqkzxygbhm/London.html?dl=0)|
+| single_cohort_analysis/London.Rmd           |   London (Lunnon, 2014)    | [Link to compiled report](https://rpubs.com/tiagochst/604982)|
 | single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_MtSinai_dataset)|
 | single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://www.dropbox.com/s/68qrntnh2knskgz/ROSMAP.html?dl=0)|
 
