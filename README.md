@@ -92,7 +92,7 @@ brain-blood methylation levels of Broadmann areas 7, 10 and 20 in postmortem sam
 
 | File                 |    HTML                  | 
 |----------------------|----------------------|
-| single_cohort_analysis/London_blood.Rmd     | [Link to compiled report](https://www.dropbox.com/s/xgv7err1j9sxkfa/London_blood.html?dl=0)|
+| single_cohort_analysis/London_blood.Rmd     | [Link to compiled report](https://rpubs.com/tiagochst/604974/)|
 | cor_methylation_changes_brain_and_blood/London_blood_brain_correlation.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_london_brain_blood_cor)|
 
 ### Correlation of significant DMRs with expression of nearby genes
