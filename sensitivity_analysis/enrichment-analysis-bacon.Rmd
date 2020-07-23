@@ -29,6 +29,8 @@ library(ExperimentHub)
 library(GenomicRanges)
 library(coMethDMR)
 library(ggplot2)
+library(LOLA)
+library(qvalue)
 ```
 
 ```{R paths}
@@ -842,8 +844,6 @@ cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
 ```
 
 ```{R LOLA_single_init_bacon, results = "hide", message = FALSE}
-library(LOLA)
-
 regionDB_hg19 <- loadRegionDB("../LOLACore/hg19")
 
 ### All sig. cpgs
@@ -1746,8 +1746,6 @@ cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
 ```
 
 ```{R LOLA_single_init, results = "hide", message = FALSE}
-library(LOLA)
-
 regionDB_hg19 <- loadRegionDB("../LOLACore/hg19")
 
 ### All sig. cpgs
