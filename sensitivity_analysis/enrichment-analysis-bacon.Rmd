@@ -33,6 +33,10 @@ library(LOLA)
 library(qvalue)
 ```
 
+```{R, include = FALSE}
+gene.info <- TCGAbiolinks::get.GRCh.bioMart(genome = "hg19")
+```
+
 ```{R paths}
 dir.data <- "./DATASETS/"
 dir.result <- "../meta_analysis_region_results/"
@@ -696,7 +700,13 @@ out <- getMappedEntrezIDs(
   array.type = "450K"
 )
 sorted.eg.sig <-  out$sig.eg
-gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+```
+
+```{R, eval = FALSE}
+gene.info <- TCGAbiolinks::get.GRCh.bioMart(genome = "hg19")
+```
+
+```{R}
 all_go$de_genes <- plyr::aaply(rownames(all_go),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
@@ -763,7 +773,13 @@ out <- getMappedEntrezIDs(
   array.type = "450K"
 )
 sorted.eg.sig <- out$sig.eg
-gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+```
+
+```{R, eval = FALSE}
+gene.info <- TCGAbiolinks::get.GRCh.bioMart(genome = "hg19")
+```
+
+```{R}
 all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
@@ -772,14 +788,17 @@ all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
 all_kegg_ordered <- all_kegg[
   order(all_kegg$P.DE),
   ]
+```
 
+```{R, eval = FALSE}
 write.csv(
   all_kegg_ordered,
   paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_all.csv"),
   row.names = TRUE
 )
+```
 
-
+```{R}
 all_kegg_ordered <- all_kegg_ordered %>%
   tibble::rownames_to_column("KEGG") %>%  # keep row names
   tibble::column_to_rownames("KEGG")      # keep row names
@@ -1603,7 +1622,13 @@ out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
                           all.cpg = background.probes,
                           array.type = "450K")
 sorted.eg.sig <-  out$sig.eg
-gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+```
+
+```{R, eval = FALSE}
+gene.info <- TCGAbiolinks::get.GRCh.bioMart(genome = "hg19")
+```
+
+```{R}
 all_go$de_genes <- plyr::aaply(rownames(all_go),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
@@ -1664,7 +1689,13 @@ out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
                           all.cpg = background.probes,
                           array.type = "450K")
 sorted.eg.sig <- out$sig.eg
-gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+```
+
+```{R, eval = FALSE}
+gene.info <- TCGAbiolinks::get.GRCh.bioMart(genome = "hg19")
+```
+
+```{R}
 all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
   gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
     sort %>% unique %>% paste(collapse = ",")
