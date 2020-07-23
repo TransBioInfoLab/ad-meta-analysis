@@ -1,5 +1,5 @@
 ---
-title: "Nature Communication Revision"
+title: "Sensitivity analysis - inflation corrected meta-analysis using bacon method"
 author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
 date: "`r Sys.Date()`"
 output:
