@@ -128,7 +128,7 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 
 | File                 |                      | 
 |----------------------|----------------------|
-| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/3xve92w88y7qtie/DMR_gene_expression_analysis.html?dl=0)|
+| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/eceku47442qk2gq/DMR_gene_expression_analysis.html?dl=0)|
 
 ### Overlap with genetic susceptibility loci
 
