@@ -51,7 +51,7 @@ estimation_of_inflation <- function(data){
 
   # inflation factor - last term is median from chisq distrn with 1 df  
   inflationFactor <- median(data$chisq,na.rm = TRUE) / qchisq(0.5, 1)
-  print("Inflation factor before correction")
+  print("Genomic Inflation Factor")
   print(inflationFactor)
 
   # genome-wide sig cpgs
@@ -67,7 +67,7 @@ estimation_of_inflation <- function(data){
   )
 
   # inflation factor
-  print("Inflation factor after correction")
+  print("Genomic Inflation factor by bacon method")
   print(inflation(bc))
   print(bias(bc))
 
@@ -81,15 +81,6 @@ estimation_of_inflation <- function(data){
     stringsAsFactors = FALSE
   )
   data.with.inflation <- data.with.inflation %>% select(-c(zvalue, chisq))
-  
-  print("Correlation between pValue and pValue.bacon")
-  print(
-    cor.test(
-      data.with.inflation$pValue, 
-      data.with.inflation$pValue.bacon, 
-      method = "spearman"
-    )
-  )
   
   return(
     list("data.with.inflation" = data.with.inflation, 
@@ -184,7 +175,7 @@ write.csv(
 )
 ```
 
-# Single CpG meta analysis with bacon adjusted results
+# Meta analysis - after subjecting single CpG p-values to inflation correction by bacon method
 
 ```{R, message = FALSE, warning = FALSE, result = "hide"}
 library(dplyr)
@@ -534,77 +525,6 @@ readr::read_csv(
   paste0(dir.result.cpg.vs.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs_bacon.csv"),
   col_types = readr::cols()
 )
-```
-
-## Venn plot of single cpg sig vs. probes in DMRs
-
-```{R}
-overlapping.results <-  readr::read_csv(
-    file.path(dir.result.comp, "meta_analysis_no_crossHyb_smoking_ov_comb_p.csv"),
-    col_types = readr::cols()
-)
-probes.in.all.regions <- coMethDMR::GetCpGsInAllRegion(overlapping.results$inputRegion)
-probes.in.all.regions <- probes.in.all.regions %>% unique %>% unlist 
-
-single.cpg.results <- readr::read_csv(
-  file.path(dir.data,"meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv"),
-  col_types = readr::cols()
-) 
-
-single.cpg.results.probes <- single.cpg.results %>% pull(cpg) %>% as.character 
-
-# library
-library(VennDiagram)
-library(ggplot2)
-
-# Make the plot
-venn <- venn.diagram(
-  x = list(
-    probes.in.all.regions %>% unique ,    
-    single.cpg.results.probes %>% unique  
-  ), 
-  category.names = c("DMR analysis probes" , "Single cpg analysis probes" ),
-  filename = file.path(dir.data, '/venn_DMR_cpg.png'),
-  output = TRUE ,
-  imagetype = "png" ,
-  height = 700 ,
-  width = 700 ,
-  resolution = 300,
-  compression = "lzw",
-  lwd = 1,
-  col = c("#440154ff", '#21908dff'),
-  fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
-  cex = 0.5,
-  cat.cex = 0.3,
-  cat.default.pos = "outer",
-  cat.pos = c(0, 180),
-  cat.dist = c(0.01, 0.01)
-)
-```
-
-```{R,show = FALSE, fig.width = 5, fig.height= 5}
- venn.diagram(
-  x = list(
-    probes.in.all.regions %>% unique ,    
-    single.cpg.results.probes %>% unique  
-  ), 
-  category.names = c("DMR analysis probes" , "Single cpg analysis probes" ),
-  filename = NULL,
-  output = TRUE ,
-  imagetype = "png" ,
-  height = 700 ,
-  width = 700 ,
-  resolution = 300,
-  compression = "lzw",
-  lwd = 1,
-  col = c("#440154ff", '#21908dff'),
-  fill = c(alpha("#440154ff",0.3), alpha('#21908dff',0.3)),
-  cex = 1,
-  cat.cex = 1,
-  cat.default.pos = "outer",
-  cat.pos = c(0, 180),
-  cat.dist = c(0.01, 0.01)
-) %>% grid.draw()
 ```
 
 # Session information
