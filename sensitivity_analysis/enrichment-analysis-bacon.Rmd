@@ -1,0 +1,1867 @@
+---
+title: "Enrichment analysis"
+author: " Tiago C. Silva, Lanyu Zhang, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE,fig.width = 10,fig.height = 10)
+```
+
+
+# Main libraries and configuration
+
+```{R libs, message = FALSE, results = 'hide'}
+library(dplyr)
+library(ExperimentHub)
+library(GenomicRanges)
+library(coMethDMR)
+library(ggplot2)
+```
+
+```{R paths}
+dir.data <- "./DATASETS/"
+dir.result <- "../meta_analysis_region_results/"
+dir.result.meta.analysis <- file.path(dir.result, "step1_meta_analysis/")
+dir.result.comp <- file.path(dir.result, "step3_comp/")
+dir.result.lola <- file.path("bacon/lola/")
+dir.result.pathway <- file.path("bacon/results_pathway/")
+for(p in grep("dir",ls(),value = T)) dir.create(get(p),recursive = TRUE,showWarnings = FALSE)
+```
+
+
+# Enrichment analysis using bacon estimations
+
+## For regions
+
+###  Get results
+
+```{R enrichment_regions_bacon}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp,pattern = "no.*csv",full.names = TRUE))
+meta_sig_pos_est <- meta_sig %>% dplyr::filter(estimate > 0)
+meta_sig_neg_est <- meta_sig %>% dplyr::filter(estimate < 0)
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+
+### Get probes from regions
+```{R enrichment_regions_bacon_comethdmr}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+  arrayType = "450k",
+  clusterType = "regions"
+)
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig_pos_est$inputRegion
+
+meta_sig_probes_pos_est <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes_pos_est)
+
+
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig_neg_est$inputRegion
+
+meta_sig_neg_est <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_neg_est)
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
+
+### Annotation
+
+```{R}
+l.probes <- list(
+    meta_all_probes,
+    meta_sig_neg_est,
+    meta_sig_probes_pos_est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(meta_all_probes),")"),
+    paste0("Significant w/ Negative estimate (n = ", length(meta_sig_neg_est),")"),
+    paste0("Significant w/ Positive estimate (n = ", length(meta_sig_probes_pos_est),")")
+)
+
+all.plot.region <- cpGsGenomicFeatures(l.probes)
+
+plot.region.cpg <- all.plot.region$plot + ggtitle("Region meta-analysis probes") 
+ggsave(
+    plot = plot.region.cpg,width = 9,
+    filename = "bacon/plots_enrichment_analysis///meta_analysis_region_enrichment.pdf"
+)
+plot.region.cpg
+```
+
+```{R enrichment_regions_bacon_cpGsEnrichment, message = FALSE, echo = FALSE}
+
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes)))
+#plot.chrm.hypo$plot
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_pos_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes)))
+#plot.chrm.hyper$plot
+
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate", nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate", nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island", nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island  %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes))
+)
+#plot.chrm.hypo$plot
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_pos_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes))
+)
+#plot.chrm.hyper$plot
+
+
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate", nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate", nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy", nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.gene  %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+### ChroMHMM
+```{R enrichment_regions_bacon_ChroMHMM}
+file <- paste0("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations",
+               "/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed")
+if(!file.exists( basename(file))) downloader::download(file, destfile = basename(file))
+ChmmModels <- readr::read_tsv( basename(file),col_names = FALSE, col_types = readr::cols())
+colnames(ChmmModels) <- c("chr","start","end","state")
+states <- readr::read_csv("../../../DNAm_RNA/data/chromHMM_labels.csv",col_names = FALSE,, col_types = readr::cols())
+states$X1 <- paste0("E",states$X1)
+ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
+ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
+
+
+```{R, include = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon/plots_enrichment_analysis//meta_analysis_region_neg_estimate_chromHMM_states.png"
+)
+#plot.chrm.hypo$plot
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_probes_pos_est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon/plots_enrichment_analysis///meta_analysis_region_pos_est_chromHMM_states.png"
+)
+#plot.chrm.hyper$plot
+```
+
+```{R}
+
+l.probes <- list(
+    meta_all_probes,
+    meta_sig_neg_est,
+    meta_sig_probes_pos_est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ", length(meta_all_probes),")"),
+    paste0("Significant w/ Negative estimate (n = ", length(meta_sig_neg_est),")"),
+    paste0("Significant w/ Positive estimate (n = ", length(meta_sig_probes_pos_est),")")
+)
+
+region.cpg.plot <-
+  cpGsGenomicFeatures(
+    l.probes,
+    annotation.gr = ChmmModels.gr,
+    plot.width = 12,
+    plot.title = "Region meta-analysis probes\nChroMHMM: E073 - 15 coreMarks segments",
+    enrichment.type = "customized",
+    plot.filename = "bacon/plots_enrichment_analysis///meta_analysis_region_chromHMM_states.pdf",
+  )
+region.cpg.plot$plot
+```
+
+```{R}
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Region", nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate", nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate", nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073", nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.region <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
+```
+
+## For single cpgs
+
+###  Get results
+
+```{R}
+### Foreground
+single.cpg.results <- readr::read_csv(
+  paste0(dir.data,"meta_analysis_single_cpg_bacon_df.csv"),
+  col_types = readr::cols()
+)
+single.cpg.sig.results <- readr::read_csv(                                                        
+  paste0(dir.data,"meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv"),
+  col_types = readr::cols()
+)                                                                                                 
+
+foreground.probes <- single.cpg.sig.results %>% pull(cpg) %>% as.character
+foreground.probes.neg.est <- single.cpg.sig.results %>% 
+  filter(estimate.bacon < 0) %>% 
+  pull(cpg) %>% 
+  as.character
+foreground.probes.pos.est <- single.cpg.sig.results  %>% 
+  filter(estimate.bacon > 0) %>% 
+  pull(cpg) %>% 
+  as.character
+length(foreground.probes)
+
+### Background
+background.probes <- single.cpg.results  %>% pull(cpg) %>% as.character 
+length(background.probes)
+```
+
+
+### Annotation
+```{R}
+l.probes <- list(
+    background.probes,
+    foreground.probes.neg.est,
+    foreground.probes.pos.est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(background.probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(foreground.probes.neg.est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(foreground.probes.pos.est),")")
+)
+
+all.plot <- cpGsGenomicFeatures(l.probes)
+plot.single.cpg <- all.plot$plot + ggtitle("Single cpg meta-analysis probes") 
+plot.single.cpg
+ggsave(
+  plot = plot.single.cpg,
+  width = 9,
+  filename = "bacon/plots_enrichment_analysis//meta_analysis_single_cpg_enrichment.pdf"
+)
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes))
+  )
+#plot.chrm.hypo$plot
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes))
+  )
+#plot.chrm.hyper$plot
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island  %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes)))
+
+#plot.chrm.hypo$plot
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes)))
+
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+#plot.chrm.hyper$plot
+tab.gene  %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+### ChroMHMM
+```{R}
+file <- paste0("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations",
+               "/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed")
+if(!file.exists( basename(file))) downloader::download(file, destfile = basename(file))
+
+
+ChmmModels <- readr::read_tsv(
+  basename(file),
+  col_names = FALSE,
+  col_types = readr::cols()
+)
+colnames(ChmmModels) <- c("chr","start","end","state")
+states <- readr::read_csv(
+  "../../../DNAm_RNA/data/chromHMM_labels.csv",
+  col_names = FALSE,
+  col_types = readr::cols()
+)
+states$X1 <- paste0("E",states$X1)
+ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
+ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
+
+```{R, include = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon/plots_enrichment_analysis//meta_analysis_single_cpg_neg_estimate_chromHMM_states.png"
+)
+
+##plot.chrm.hypo$plot
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon/plots_enrichment_analysis//meta_analysis_single_cpg_pos_est_chromHMM_states.png")
+##plot.chrm.hyper$plot
+```
+
+```{R}
+l.probes <- list(
+    background.probes,
+    foreground.probes.neg.est,
+    foreground.probes.pos.est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(background.probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(foreground.probes.neg.est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(foreground.probes.pos.est),")")
+)
+
+single.cpg.plot <- cpGsGenomicFeatures(
+  l.probes,
+  annotation.gr = ChmmModels.gr,
+  plot.width = 12,
+  plot.title = "Single cpg meta-analysis probes\nChroMHMM: E073 - 15 coreMarks segments",
+  enrichment.type = "customized",
+  plot.filename = "bacon/plots_enrichment_analysis//meta_analysis_single_cpg_chromHMM_states.pdf",
+)
+single.cpg.plot$plot
+```
+
+
+```{R}
+
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm  %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.cpg <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
+colnames(tab.all.cpg)[5:6] <- paste0("cpg_",colnames(tab.all.cpg)[5:6])
+colnames(tab.all.region)[5:6] <- paste0("dmr_",colnames(tab.all.cpg)[5:6])
+tab.all <- merge(tab.all.region[,-1],tab.all.cpg[,-1])
+readr::write_csv(tab.all, path = "bacon/Enrichment_analysis_OR_pvalue.csv")
+```
+
+```{R}
+library(patchwork)
+save(plot.single.cpg,plot.region.cpg,single.cpg.plot,region.cpg.plot,file = "supFig2.rda")
+plot.single.cpg <- plot.single.cpg + guides(col = guide_legend(ncol = 1))
+plot.region.cpg <- plot.region.cpg + guides(col = guide_legend(ncol = 1))
+sup.fig2 <- (plot.single.cpg + plot.region.cpg) / single.cpg.plot$plot / region.cpg.plot$plot + plot_annotation(tag_levels = 'A')
+ggsave("Supplemental_figure_2.pdf",plot = sup.fig2,height = 18,width = 10)
+```
+
+
+# Pathway analysis using bacon estimations
+
+## For regions + single cpgs
+
+### Get probes
+
+### Get probes from regions
+```{R}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp,pattern = "no.*csv",full.names = TRUE))
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+```{R}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+  arrayType = "450k",
+  clusterType = "regions"
+)
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig$inputRegion
+
+meta_sig_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes)
+
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
+
+```{R}
+all.foreground.probes <- c(meta_sig_probes, foreground.probes) %>% unique  
+all.background.probes <- c(meta_all_probes, background.probes) %>% unique
+```
+
+### Pathway analysis (gene ontology analysis)
+
+```{R pathway_libs_regions_cpgs_bacon,message = FALSE, results = "hide"}
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+```
+
+```{R pathway_regions_cpgs_bacon}
+### collection = "GO"
+all_go <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "GO",
+  fract.counts = TRUE
+)
+# topGSA(all_go)
+
+go <- missMethyl:::.getGO()
+out <- getMappedEntrezIDs(
+  sig.cpg = foreground.probes,
+  all.cpg = background.probes,
+  array.type = "450K"
+)
+sorted.eg.sig <-  out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_go$de_genes <- plyr::aaply(rownames(all_go),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_go_ordered <- all_go[
+  order(all_go$P.DE),
+  ]
+```
+
+```{R,eval = FALSE}
+write.csv(
+  all_go_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_all.csv"),
+  row.names = TRUE
+)
+```
+
+```{R,eval = TRUE}
+all_go_ordered.bp <- all_go_ordered %>%
+  tibble::rownames_to_column("GO") %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "BP") %>%
+  tibble::column_to_rownames("GO")   # keep row names
+all_go_ordered.bp$FDR <- p.adjust(all_go_ordered.bp$P.DE,"fdr")
+```
+
+```{R,eval = FALSE}
+write.csv(
+  all_go_ordered.bp,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+all_go_ordered.bp  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results BP (FDR < 0.05)")
+```
+
+```{R kegg_regions_cpgs_bacon}
+### collection = "KEGG"
+all_kegg <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "KEGG",
+  fract.counts = TRUE
+)
+# topGSA(all_kegg)
+
+kegg <- missMethyl:::.getKEGG()
+out <- getMappedEntrezIDs(
+  sig.cpg = foreground.probes,
+  all.cpg = background.probes,
+  array.type = "450K"
+)
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_kegg_ordered <- all_kegg[
+  order(all_kegg$P.DE),
+  ]
+
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_all.csv"),
+  row.names = TRUE
+)
+
+
+all_kegg_ordered <- all_kegg_ordered %>%
+  tibble::rownames_to_column("KEGG") %>%  # keep row names
+  tibble::column_to_rownames("KEGG")      # keep row names
+all_kegg_ordered$FDR <- p.adjust(all_kegg_ordered$P.DE,"fdr")
+```
+
+
+```{R, eval = FALSE}
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+all_kegg_ordered  %>% 
+  dplyr::filter(P.DE < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "kegg results (P.DE < 0.05)")                                   
+```                                                                                     
+
+
+# LOLA: Locus overlap analysis for enrichment of genomic ranges using bacon estimations
+## For single cpg 
+
+```{R LOLA_single_bacon, results = "hide", message = FALSE}
+### Call in datasets
+cpg_sig_noCrossHyb_noSmoke <- read.csv(
+  paste0(dir.data,"/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv")
+) #dim: 3751 24
+
+cpg_all <- read.csv(
+  paste0(dir.data,"/meta_analysis_single_cpg_bacon_df.csv")
+) #dim: 450793 24
+
+cpg_sig_hyper_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+  filter(estimate.bacon > 0)
+cpg_sig_hypo_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+  filter(estimate.bacon < 0)
+
+### Turn input regions into GRanges
+library(GenomicRanges)
+cpg_sig_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_noCrossHyb_noSmoke
+)
+cpg_sig_hyper_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hyper_noCrossHyb_noSmoke
+)
+cpg_sig_hypo_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hypo_noCrossHyb_noSmoke
+)
+cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
+```
+
+```{R LOLA_single_init_bacon, results = "hide", message = FALSE}
+library(LOLA)
+
+regionDB_hg19 <- loadRegionDB("../LOLACore/hg19")
+
+### All sig. cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+```
+
+```{R, eval = FALSE}
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_all_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>%
+  dplyr::filter(qValue < 0.05 & collection == "encode_tfbs") %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg all LOLA results")
+```
+
+```{R LOLA_single_run_bacon, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
+
+### All hyper cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hyper_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+```
+
+```{R, eval = FALSE}
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hyper_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R, include = FALSE, eval = FALSE}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hyper LOLA results")
+```
+
+```{R LOLA_single_res_bacon, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
+
+### All hypo cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hypo_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+```
+
+```{R, eval = FALSE}
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hypo_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R, include = FALSE, eval = FALSE}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hypo LOLA results")
+```
+
+
+
+
+
+# Enrichment analysis using 2.4E-7 cut-off
+
+```{R}
+dir.result.lola <- file.path("bacon_2_4_minus_7/lola/")
+dir.result.pathway <- file.path("bacon_2_4_minus_7/results_pathway/")
+```
+
+
+## For regions
+
+###  Get results
+
+```{R}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp, pattern = "no.*csv",full.names = TRUE))
+meta_sig_pos_est <- meta_sig %>% dplyr::filter(estimate > 0)
+meta_sig_neg_est <- meta_sig %>% dplyr::filter(estimate < 0)
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+
+### Get probes from regions
+```{R}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+  arrayType = "450k",
+  clusterType = "regions"
+)
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig_pos_est$inputRegion
+
+meta_sig_probes_pos_est <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes_pos_est)
+
+
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig_neg_est$inputRegion
+
+meta_sig_neg_est <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_neg_est)
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
+
+### Annotation
+
+```{R}
+l.probes <- list(
+    meta_all_probes,
+    meta_sig_neg_est,
+    meta_sig_probes_pos_est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(meta_all_probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(meta_sig_neg_est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(meta_sig_probes_pos_est),")")
+)
+
+all.plot.region <- cpGsGenomicFeatures(l.probes)
+
+plot.region.cpg <- all.plot.region$plot + ggtitle("Region meta-analysis probes") 
+ggsave(
+    plot = plot.region.cpg,width = 9,
+    filename = "bacon_2_4_minus_7/plots_enrichment_analysis//meta_analysis_region_enrichment.pdf"
+)
+plot.region.cpg
+```
+
+```{R, message = FALSE, echo = FALSE}
+
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes)))
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_pos_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes)))
+
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes))
+)
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_pos_est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes))
+)
+
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.gene %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+### ChroMHMM
+```{R}
+file <- paste0("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations",
+               "/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed")
+if(!file.exists( basename(file))) downloader::download(file, destfile = basename(file))
+ChmmModels <- readr::read_tsv(basename(file),col_names = FALSE, col_types = readr::cols())
+colnames(ChmmModels) <- c("chr","start","end","state")
+states <- readr::read_csv("../../../DNAm_RNA/data/chromHMM_labels.csv",col_names = FALSE,, col_types = readr::cols())
+states$X1 <- paste0("E",states$X1)
+ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
+ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
+
+
+```{R, include = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = meta_sig_neg_est,
+  bg.probes = meta_all_probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(meta_sig_neg_est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis/meta_analysis_region_neg_estimate_chromHMM_states.png"
+)
+plot.chrm.hypo$plot
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = meta_sig_probes_pos_est,
+  bg.probes = meta_all_probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(meta_sig_probes_pos_est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(meta_all_probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis//meta_analysis_region_pos_est_chromHMM_states.png"
+)
+plot.chrm.hyper$plot
+```
+
+```{R}
+
+l.probes <- list(
+    meta_all_probes,
+    meta_sig_neg_est,
+    meta_sig_probes_pos_est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(meta_all_probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(meta_sig_neg_est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(meta_sig_probes_pos_est),")")
+)
+
+region.cpg.plot <-
+  cpGsGenomicFeatures(
+    l.probes,
+    annotation.gr = ChmmModels.gr,
+    plot.width = 12,
+    plot.title = "Region meta-analysis probes\nChroMHMM: E073 - 15 coreMarks segments",
+    enrichment.type = "customized",
+    plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis//meta_analysis_region_chromHMM_states.pdf",
+  )
+region.cpg.plot$plot
+```
+
+```{R}
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Region",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.region <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
+```
+
+## For single cpgs
+
+###  Get results
+
+```{R}
+### Foreground
+single.cpg.results <- readr::read_csv(
+  paste0(dir.data,"meta_analysis_single_cpg_bacon_df.csv"),
+  col_types = readr::cols()
+)
+single.cpg.sig.results <- readr::read_csv(                                                        
+  paste0(dir.data,"meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon_2_4_minus_7.csv"),
+  col_types = readr::cols()
+)                                                                                                 
+
+foreground.probes <- single.cpg.sig.results %>% pull(cpg) %>% as.character
+foreground.probes.neg.est <- single.cpg.sig.results %>% filter(estimate.bacon < 0) %>% pull(cpg) %>% as.character
+foreground.probes.pos.est <- single.cpg.sig.results  %>% filter(estimate.bacon > 0) %>% pull(cpg) %>% as.character
+length(foreground.probes)
+
+### Background
+background.probes <- single.cpg.results  %>% pull(cpg) %>% as.character 
+length(background.probes)
+```
+
+
+### Annotation
+```{R}
+l.probes <- list(
+    background.probes,
+    foreground.probes.neg.est,
+    foreground.probes.pos.est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(background.probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(foreground.probes.neg.est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(foreground.probes.pos.est),")")
+)
+
+all.plot <- cpGsGenomicFeatures(l.probes)
+plot.single.cpg <- all.plot$plot + ggtitle("Single cpg meta-analysis probes") 
+plot.single.cpg
+ggsave(
+    plot = plot.single.cpg,
+    width = 9, 
+    filename = "bacon_2_4_minus_7/plots_enrichment_analysis/meta_analysis_single_cpg_enrichment.pdf"
+)
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes))
+  )
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  enrichment.type = "island",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes))
+  )
+
+tab.island <- cbind(
+   data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("Relation_to_Island",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.island %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R, message = FALSE, echo = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes)))
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  enrichment.type = "gene",
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est)),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes)))
+
+tab.gene <- cbind(
+ data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("UCSC_RefGene_Group_hierarchy",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.gene %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+### ChroMHMM
+```{R}
+file <- paste0("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations",
+               "/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed")
+if(!file.exists( basename(file))) downloader::download(file, destfile = basename(file))
+ChmmModels <- readr::read_tsv(
+  basename(file),
+  col_names = FALSE,
+  col_types = readr::cols()
+)
+colnames(ChmmModels) <- c("chr","start","end","state")
+states <- readr::read_csv(
+  "../../../DNAm_RNA/data/chromHMM_labels.csv",
+  col_names = FALSE,
+  col_types = readr::cols()
+)
+states$X1 <- paste0("E",states$X1)
+ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
+ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
+
+```{R, include = FALSE}
+plot.chrm.hypo <- cpGsEnrichment(
+  fg.probes = foreground.probes.neg.est,
+  bg.probes = background.probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Negative estimate (n = ",
+                    length(foreground.probes.neg.est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis/meta_analysis_single_cpg_neg_estimate_chromHMM_states.png"
+)
+
+plot.chrm.hypo$plot
+
+plot.chrm.hyper <- cpGsEnrichment(
+  fg.probes = foreground.probes.pos.est,
+  bg.probes = background.probes,
+  annotation.gr = ChmmModels.gr,
+  fg.label = paste0("Significant probes w/ Positive estimate (n = ",
+                    length(foreground.probes.pos.est),")"),
+  bg.label = paste0("Evaluated probes (n = ",
+                    length(background.probes),")"),
+  enrichment.type = "customized",
+  plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis/meta_analysis_single_cpg_pos_est_chromHMM_states.png")
+plot.chrm.hyper$plot
+```
+
+```{R}
+l.probes <- list(
+    background.probes,
+    foreground.probes.neg.est,
+    foreground.probes.pos.est
+)
+
+names(l.probes) <- c(
+    paste0("Evaluated probes (n = ",length(background.probes),")"),
+    paste0("Significant w/ Negative estimate (n = ",length(foreground.probes.neg.est),")"),
+    paste0("Significant w/ Positive estimate (n = ",length(foreground.probes.pos.est),")")
+)
+
+single.cpg.plot <- cpGsGenomicFeatures(
+  l.probes,
+  annotation.gr = ChmmModels.gr,
+  plot.width = 12,
+  plot.title = "Single cpg meta-analysis probes\nChroMHMM: E073 - 15 coreMarks segments",
+  enrichment.type = "customized",
+  plot.filename = "bacon_2_4_minus_7/plots_enrichment_analysis/meta_analysis_single_cpg_chromHMM_states.pdf",
+)
+single.cpg.plot$plot
+```
+
+
+```{R}
+tab.chrm <- cbind(
+  data.frame(
+    "Meta-Analysis" = c(
+      rep("Single CpG",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    ),
+    "Foreground probes" = c(
+      rep("Significant probes w/ Positive estimate",nrow(plot.chrm.hyper$table)),
+      rep("Significant probes w/ Negative estimate",nrow(plot.chrm.hypo$table))
+    ),
+    "Enrichment analysis" = c(
+      rep("ChroMHMM: E073",nrow(plot.chrm.hyper$table) + nrow(plot.chrm.hypo$table))
+    )
+  ),
+  rbind(plot.chrm.hyper$table[,c(1,6,7)],
+        plot.chrm.hypo$table[,c(1,6,7)])
+)
+tab.chrm %>% 
+  DT::datatable(
+    filter = 'top',
+    style = "bootstrap",
+    extensions = 'Buttons',
+    options = list(scrollX = TRUE, 
+                   dom = 'Bfrtip',
+                   buttons = I('colvis'),
+                   keys = TRUE, 
+                   pageLength = 10)
+  )
+```
+
+
+```{R include = FALSE}
+colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
+tab.all.cpg <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
+colnames(tab.all.cpg)[5:6] <- paste0("cpg_",colnames(tab.all.cpg)[5:6])
+colnames(tab.all.region)[5:6] <- paste0("dmr_",colnames(tab.all.cpg)[5:6])
+tab.all <- merge(tab.all.region[,-1],tab.all.cpg[,-1])
+readr::write_csv(tab.all,path = "bacon_2_4_minus_7/Enrichment_analysis_OR_pvalue.csv")
+```
+
+```{R}
+library(patchwork)
+save(plot.single.cpg,plot.region.cpg,single.cpg.plot,region.cpg.plot,file = "supFig3.rda")
+plot.single.cpg <- plot.single.cpg + guides(col = guide_legend(ncol = 1))
+plot.region.cpg <- plot.region.cpg + guides(col = guide_legend(ncol = 1))
+sup.fig2 <- (plot.single.cpg + plot.region.cpg) / single.cpg.plot$plot / region.cpg.plot$plot + plot_annotation(tag_levels = 'A')
+ggsave("Supplemental_figure_3.pdf",plot = sup.fig2,height = 18,width = 10)
+```
+
+# Pathway analysis using 2.4E-7 cut-off
+
+## For regions + single cpgs
+
+### Get probes
+
+### Get probes from regions
+```{R}
+### Call in datasets
+meta_sig <- read.csv(dir(dir.result.comp,pattern = "no.*csv",full.names = TRUE))
+
+meta_all <- read.csv(
+  paste0(dir.result.meta.analysis, "meta_analysis_ALL_df.csv")
+) #dim: 40010 41
+```
+
+```{R}
+probes.cluster.all <- coMethDMR::getPredefinedCluster(
+  arrayType = "450k",
+  clusterType = "regions"
+)
+
+### get all cps in meta_sig input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_sig$inputRegion
+
+meta_sig_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+length(meta_sig_probes)
+
+### get all cps in meta_all input regions
+idx <- gsub(
+  "450k_Gene_3_200.|450k_InterGene_3_200.","",names(probes.cluster.all)
+) %in% meta_all$inputRegion
+
+meta_all_probes <- probes.cluster.all[idx] %>%
+  unlist %>%
+  as.character() %>%
+  unique
+
+length(meta_all_probes)
+```
+
+```{R}
+all.foreground.probes <- c(meta_sig_probes, foreground.probes) %>% unique  
+all.background.probes <- c(meta_all_probes, background.probes) %>% unique
+```
+
+### Pathway analysis (gene ontology analysis)
+
+```{R pathway_libs_regions_cpgs,message = FALSE, results = "hide"}
+library(missMethyl)
+library(IlluminaHumanMethylation450kanno.ilmn12.hg19)
+```
+
+```{R pathway_regions_cpgs}
+### collection = "GO"
+all_go <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "GO",
+  fract.counts = TRUE
+)
+# topGSA(all_go)
+
+go <- missMethyl:::.getGO()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type = "450K")
+sorted.eg.sig <-  out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_go$de_genes <- plyr::aaply(rownames(all_go),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(go$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_go_ordered <- all_go[
+  order(all_go$P.DE),
+  ]
+
+write.csv(
+  all_go_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_all.csv"),
+  row.names = TRUE
+)
+
+all_go_ordered.bp <- all_go_ordered %>%
+  tibble::rownames_to_column("GO") %>%  # keep row names
+  dplyr::filter(ONTOLOGY == "BP") %>%
+  tibble::column_to_rownames("GO")   # keep row names
+all_go_ordered.bp$FDR <- p.adjust(all_go_ordered.bp$P.DE,"fdr")
+```
+
+```{R,eval = FALSE}
+write.csv(
+  all_go_ordered.bp,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_GO_results_BP_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+all_go_ordered.bp  %>% 
+  dplyr::filter(FDR < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "GO results BP (FDR < 0.05)")
+```
+
+```{R kegg_regions_cpgs}
+### collection = "KEGG"
+all_kegg <- gometh(
+  sig.cpg = all.foreground.probes,
+  all.cpg = all.background.probes,
+  collection = "KEGG",
+  fract.counts = TRUE
+)
+# topGSA(all_kegg)
+
+kegg <- missMethyl:::.getKEGG()
+out <- getMappedEntrezIDs(sig.cpg = foreground.probes,
+                          all.cpg = background.probes,
+                          array.type = "450K")
+sorted.eg.sig <- out$sig.eg
+gene.info <- TCGAbiolinks::get.GRCh.bioMart()
+all_kegg$de_genes <- plyr::aaply(rownames(all_kegg),1,.fun = function(idx){
+  gene.info$external_gene_name[gene.info$entrezgene_id %in% intersect(kegg$idList[[idx]],sorted.eg.sig)] %>%
+    sort %>% unique %>% paste(collapse = ",")
+})
+
+all_kegg_ordered <- all_kegg[
+  order(all_kegg$P.DE),
+  ]
+
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_all.csv"),
+  row.names = TRUE
+)
+
+
+all_kegg_ordered <- all_kegg_ordered %>%
+  tibble::rownames_to_column("KEGG") %>%  # keep row names
+  tibble::column_to_rownames("KEGG")      # keep row names
+all_kegg_ordered$FDR <- p.adjust(all_kegg_ordered$P.DE,"fdr")
+```
+
+
+```{R, eval = FALSE}
+write.csv(
+  all_kegg_ordered,
+  paste0(dir.result.pathway, "pathway_regions_and_cpgs_KEGG_results_N_range_5_200_fdr_recalc.csv"),
+  row.names = TRUE
+)
+```
+
+```{R}
+all_kegg_ordered  %>% 
+  dplyr::filter(P.DE < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE, 
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE, 
+                               pageLength = 10), 
+                rownames = FALSE,
+                caption = "kegg results (P.DE < 0.05)")                                   
+```                                                                                     
+
+
+# LOLA: Locus overlap analysis for enrichment of genomic ranges using 2.4E-7 cut-off
+
+## For single cpg 
+
+```{R LOLA_single, results = "hide", message = FALSE}
+### Call in datasets
+cpg_sig_noCrossHyb_noSmoke <- read.csv(
+  paste0(dir.data,"/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon_2_4_minus_7.csv")
+) #dim: 3751 24
+
+cpg_all <- read.csv(
+  paste0(dir.data,"/meta_analysis_single_cpg_sig_df_bacon_2_4_minus_7.csv")
+) #dim: 450793 24
+
+cpg_sig_hyper_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+  filter(estimate.bacon > 0)
+cpg_sig_hypo_noCrossHyb_noSmoke <- cpg_sig_noCrossHyb_noSmoke %>%
+  filter(estimate.bacon < 0)
+
+### Turn input regions into GRanges
+library(GenomicRanges)
+cpg_sig_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_noCrossHyb_noSmoke
+)
+cpg_sig_hyper_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hyper_noCrossHyb_noSmoke
+)
+cpg_sig_hypo_noCrossHyb_noSmoke_gr <- makeGRangesFromDataFrame(
+  cpg_sig_hypo_noCrossHyb_noSmoke
+)
+cpg_all_gr <- makeGRangesFromDataFrame(cpg_all)
+```
+
+```{R LOLA_single_init, results = "hide", message = FALSE}
+library(LOLA)
+
+regionDB_hg19 <- loadRegionDB("../LOLACore/hg19")
+
+### All sig. cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+```
+
+```{R, eval = FALSE}
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_all_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R}
+locResults   %>%
+  dplyr::filter(qValue < 0.05 & collection == "encode_tfbs") %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg all LOLA results")
+```
+
+```{R LOLA_single_run, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
+
+### All hyper cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hyper_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+```
+
+```{R, eval = FALSE}
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hyper_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R, include = FALSE, eval = FALSE}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hyper LOLA results")
+```
+
+```{R LOLA_single_res, results = "hide", message = FALSE, include = FALSE, eval = FALSE}
+
+### All hypo cpgs
+locResults <- runLOLA(
+  userSets = cpg_sig_hypo_noCrossHyb_noSmoke_gr,
+  userUniverse = cpg_all_gr,
+  regionDB = regionDB_hg19,
+  cores = 1
+)
+
+locResults$pValue <- 10^(-locResults$pValueLog)
+
+locResults_ordered <- locResults[,c(1:3, 24, 4:23)]
+
+write.csv(
+  locResults_ordered,
+  paste0(dir.result.lola, "cpgs_hypo_LOLA_results.csv"),
+  row.names = FALSE
+)
+```
+
+```{R, include = FALSE, eval = FALSE}
+locResults   %>%
+  dplyr::filter(qValue < 0.05) %>%
+  DT::datatable(filter = 'top',
+                style = "bootstrap",
+                extensions = 'Buttons',
+                options = list(scrollX = TRUE,
+                               dom = 'Bfrtip',
+                               buttons = I('colvis'),
+                               keys = TRUE,
+                               pageLength = 10),
+                rownames = FALSE,
+                caption = "single cpg hypo LOLA results")
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```
+
+
