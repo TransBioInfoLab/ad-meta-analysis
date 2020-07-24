@@ -1,0 +1,563 @@
+---
+title: "Correlation of AD associated methylation changes with expressions of nearby genes"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+author:
+- Lanyu Zhang, Tiago C. Silva, Lily Wang
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    code_folding: show
+    toc_float: false
+    toc_depth: 4
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  warning = FALSE,
+  fig.width = 10, 
+  fig.height = 13
+)
+knitr::opts_knit$set(
+  progress = FALSE, 
+  verbose = FALSE,
+  root.dir = ".."
+)
+show.section.code <- FALSE
+```
+
+`r if(show.section.code){"# Load libraries"}`
+
+```{r, include = show.section.code}
+suppressMessages({
+  library(ComplexHeatmap)
+  library(SummarizedExperiment)
+  library(GenomicRanges)
+  library(coMethDMR)
+  library(TCGAbiolinks)
+  library(ggpubr)
+  library(dplyr)
+  library(tidyr)
+  library(ggpubr)
+  library(DelayedMatrixStats)
+  devtools::load_all("~/Dropbox (BBSR)/PanCancer/methTF/")
+  library(doParallel)
+  registerDoParallel(4)
+  gene.info <- TCGAbiolinks::get.GRCh.bioMart("hg19")
+})
+```
+
+# Datasets
+
+- DNAm data – in file 'ROSMAP_QNBMIQ_PCfiltered.RDS'
+- RNAseq data – in files:
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_1_to_6_normalized.tsv'
+  - 'ROSMAP_RNAseq_FPKM_gene_plates_7_to_8_normalized.tsv'
+- Link for IDs – in file "ROSMAP_IDkey"
+  - column "mwas_id" is for DNAm data
+  - column "rnaseq_id" is for rnaseq
+- Phenotype data:  pheno_withNeuronProp_df.RDS
+
+## Code to get matched data
+
+```{R}
+## Reading data created previously
+data.path <- "../../code_validation/Meta_analysis_code/DATASETS/ROSMAP"
+load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
+dim(matched.dnam)
+dim(matched.exp)
+matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
+matched.phenotype
+gghistogram(
+  matched.phenotype$braaksc,
+  bins = 7,
+  fill = "black",
+  color = "white",
+  alpha = 1
+)
+```
+
+# Region analysis
+
+## Get metadata results
+
+## Analysis: RNA vs DNAm
+
+We will used that that remove confounding effects.
+
+```{R}
+load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/residuals.rda")
+```
+
+## Map region to genes +-250kb
+
+The function `getDNAm.target` will extend the regions $+-250Kbp$ and return the overlapping genes.
+
+
+```{R}
+regions.gr <- rownames(resid_met) %>% 
+  as.data.frame %>% 
+  tidyr::separate(col = ".",into = c("chr","start","end"))  %>%
+  makeGRangesFromDataFrame()
+names(regions.gr) <- rownames(resid_met)
+regions.gr
+
+# function available in methTF package https://gitlab.com/tiagochst/methtf
+regions.genes <- get_region_target_gene(
+  regions.gr = regions.gr,
+  genome = "hg19",
+  method = "window",
+  window.size = 500 * 10 ^ 3
+) # 500 kb
+
+regions.genes <- regions.genes %>%
+  dplyr::filter(regions.genes$target %in% rownames(resid_exp))
+
+dim(regions.genes)
+head(regions.genes)
+```
+
+## Target vs DNAm residual
+
+```{R, eval = TRUE}
+# http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
+doParallel::registerDoParallel(detectCores()/2)
+tab <- plyr::adply(
+  regions.genes,
+  .margins = 1,
+  .fun = function(row) {
+    tryCatch({
+      rna.target <- resid_exp[rownames(resid_exp) == row$target, , drop = FALSE]
+      met.residual <- resid_met[rownames(resid_met) == as.character(row$regionID), ]
+      
+      df <- data.frame(
+        rna.residual = rna.target %>% as.numeric,
+        met.residual = met.residual %>% as.numeric,
+        Braak_stage = matched.phenotype$braaksc %>% as.numeric
+      )
+      
+      # fit linear model:
+      results.all <-  lm(
+        rna.residual ~ met.residual + Braak_stage, data = df
+      )
+      results.all.pval <- summary(results.all)$coefficients[
+          2, "Pr(>|t|)", drop = F] %>% 
+          t %>% as.data.frame()
+      results.all.estimate <- summary(results.all)$coefficients[
+          2, "Estimate", drop = F] %>% 
+          t %>% as.data.frame()
+      colnames(results.all.pval) <- paste0(
+          "all_pval_", colnames(results.all.pval))
+      colnames(results.all.estimate) <- paste0(
+          "all_estimate_", colnames(results.all.estimate))
+      
+      return(
+        data.frame(
+          cbind(results.all.pval, results.all.estimate),
+          row.names = NULL,
+          stringsAsFactors = FALSE
+        )
+      )
+    }, error = function(e) {
+      print(row)
+      return()
+    })
+  },
+  .id = NULL,
+  .progress = "time",
+  .parallel = TRUE,
+  .inform = TRUE
+)
+```
+
+```{R, eval = TRUE}
+readr::write_csv(
+    tab,
+    path = "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window.csv"
+)
+```
+
+### Results
+
+```{R}
+tab <- readr::read_csv(
+  file = "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window.csv",
+    col_types = readr::cols()
+)
+
+meta.analysis.folder <- "../../code_validation/Meta_analysis_code/meta_analysis_region_results/"
+region.analysis <- readr::read_csv(
+  file.path(meta.analysis.folder,"step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs.csv"),
+  col_types = readr::cols()
+)
+
+tab$all_fdr <- p.adjust(tab$all_pval_met.residual,method = "fdr")
+
+output <- tab[,c("regionID","target_gene_name",
+                 "all_estimate_met.residual",
+                 "all_pval_met.residual","all_fdr")] 
+colnames(output) <- c(
+  "coMethDMR",
+  "geneSymbol",
+  "estimate.all",
+  "pval.all",
+  "fdr.all"
+)
+
+cols <- c(
+  grep("ROSMAP_coMethRegion",colnames(region.analysis)),
+  grep("Relation",colnames(region.analysis)):grep("^smoke_bi$",colnames(region.analysis))
+)
+output2 <- merge(
+  output,
+  region.analysis[,cols],
+  by.x = "coMethDMR", 
+  by.y = "ROSMAP_coMethRegion",
+  all.x = TRUE
+)
+output2 <- output2 %>% arrange(pval.all)
+```
+
+```{R, eval = TRUE}
+write.csv(
+    output2,
+    file = "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed.csv",
+    row.names = FALSE
+)
+```
+
+# Single cpg analysis
+
+## Get metadata results
+
+## Analysis: RNA vs DNAm
+
+Load DNAm data that removed confounding effects.
+
+```{R,eval = TRUE, include = FALSE}
+load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/residuals_cpg.rda")
+```
+
+## Map region to genes +-250kb
+
+The function `get_region_target_gene` will extend the regions $+-250Kbp$ and return the overlapping genes.
+
+```{R}
+dmr.gr <- sesameData::sesameDataGet(
+    "HM450.hg19.manifest")[row.names(resid_met_cpg),] 
+regions.genes <- get_region_target_gene(
+  regions.gr = dmr.gr,
+  genome = "hg19",
+  method = "window",
+  window.size = 500 * 10 ^ 3
+) # 500 kb
+
+regions.genes <- regions.genes %>%
+  dplyr::filter(regions.genes$target %in% rownames(resid_exp))
+
+regions.genes$cpg <- names(dmr.gr)[
+  match(
+      regions.genes$regionID,
+      paste0(
+          as.data.frame(dmr.gr)$seqnames, ":",
+          as.data.frame(dmr.gr)$start,"-",
+          as.data.frame(dmr.gr)$end
+      )
+  )
+]
+
+dim(regions.genes)
+head(regions.genes)
+```
+
+## Target vs DNAm residual
+
+```{R, eval = TRUE}
+# http://www.r-tutor.com/elementary-statistics/simple-linear-regression/residual-plot
+doParallel::registerDoParallel(detectCores()/2)
+tab.cpg <- plyr::adply(
+  regions.genes,
+  .margins = 1,
+  .fun = function(row) {
+    tryCatch({
+      rna.target <-
+        resid_exp[rownames(resid_exp) == row$target, , drop = FALSE]
+      met.residual <-
+        resid_met_cpg[rownames(resid_met_cpg) == as.character(row$cpg), ]
+      
+      df <- data.frame(
+              rna.residual = rna.target %>% as.numeric,
+              met.residual = met.residual %>% as.numeric,
+              Braak_stage = matched.phenotype$braaksc %>% as.numeric
+      )
+      
+      # fit linear model
+      results.all <- lm(
+          rna.residual ~ met.residual + Braak_stage, data = df
+      )
+      
+      # get pvalues coeficients
+      results.all.pval <- summary(results.all)$coefficients[
+          2, 4, drop = F] %>% t %>% as.data.frame()
+      colnames(results.all.pval) <-
+        paste0("all_pval_", colnames(results.all.pval))
+
+      # get estimate coeficients
+      results.all.estimate <- summary(results.all)$coefficients[
+          2, 1, drop = F] %>% t %>% as.data.frame()
+      colnames(results.all.estimate) <-
+        paste0("all_estimate_", colnames(results.all.estimate))
+      
+      return(
+        data.frame(
+          cbind(results.all.pval, results.all.estimate),
+          row.names = NULL,
+          stringsAsFactors = FALSE
+        )
+      )
+    }, error = function(e) {
+      print(row)
+      return()
+    })
+  },
+  .id = NULL,
+  .progress = "time",
+  .parallel = TRUE,
+  .inform = TRUE
+)
+```
+
+```{R, eval = TRUE}
+readr::write_csv(
+    tab.cpg,
+    path = "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window.csv"
+)
+```
+
+### Results
+
+```{R}
+tab.cpg <- readr::read_csv(
+    "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window.csv",
+    col_types = readr::cols()
+)
+tab.cpg$fdr.all <- p.adjust(tab.cpg$all_pval_met.residual,method = "fdr")
+
+output <- tab.cpg[,c("cpg","target_gene_name",
+                     "all_estimate_met.residual",
+                     "all_pval_met.residual","fdr.all")
+                  ] 
+colnames(output) <- c(
+  "cpg",
+  "geneSymbol",
+  "estimate.all",
+  "pval.all",
+  "fdr.all"
+)
+output <- output %>% arrange(pval.all)
+```
+
+```{R, eval = TRUE}
+write.csv(
+    output,
+    file = "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed.csv",
+    row.names = FALSE
+)
+```
+
+# Splitting results by group 
+
+## DMRs
+
+```{R}
+dmr <- read.csv(
+  "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed.csv"
+)
+pathDropbox <- file.path(dir("~", pattern = "Dropbox", full.names = TRUE))
+dmr_meta <- read.csv(
+  file.path(pathDropbox,
+            "coMethDMR_metaAnalysis/",
+            "code_validation/Meta_analysis_code/meta_analysis_region_results",
+            "/step4_dmr_vs_cpgs/meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_all.csv")
+)[, c("ROSMAP_coMethRegion",
+      "GREAT_annotation",
+      "UCSC_RefGene_Group",
+      "UCSC_RefGene_Accession",
+      "UCSC_RefGene_Name",
+      "state")
+  ]
+
+dmr.annot <- merge(
+  dmr, dmr_meta,
+  by.x = "coMethDMR",
+  by.y = "ROSMAP_coMethRegion",
+  sort = FALSE
+)
+
+dmr.annot <- dmr.annot[
+    order(dmr.annot$pval.all), c(1:5, 17:20, 6, 21, 7: 14)
+]
+```
+
+```{R, eval = TRUE}
+write.csv(
+  dmr.annot,
+  "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed_with_annot.csv"
+)
+```
+
+## CpGs
+
+```{R}
+cpg <- read.csv(
+  "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed.csv"
+)
+cpg_meta <- read.csv(
+    file.path(pathDropbox,
+            "coMethDMR_metaAnalysis/",
+            "code_validation/Meta_analysis_code/meta_analysis_single_cpg_results/",
+            "/meta_analysis_single_cpg_sig_no_crossHyb_smoking_with_state_greatAnnot_df.csv")
+)[, c("cpg",
+      "GREAT_annotation",
+      "UCSC_RefGene_Group",
+      "UCSC_RefGene_Accession",
+      "UCSC_RefGene_Name",
+      "Relation_to_Island",
+      "state",
+      "estimate", 
+      "se", 
+      "pVal.fixed", 
+      "pVal.random",
+      "pValQ", 
+      "direction", 
+      "pVal.final", 
+      "fdr")
+  ]
+
+cpg.annot <- merge(
+  cpg, cpg_meta,
+  by = "cpg",
+  sort = FALSE
+)
+
+cpg.annot <- cpg.annot %>% arrange(pval.all)
+```
+
+```{R, eval = TRUE}
+write.csv(
+  cpg.annot,
+  "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed_with_annot.csv"
+)
+```
+
+# Fit model of -logP ~ analysis.type
+
+Purpose: from the results above, we see that number of genes is a confounder, so we are fitting a glm model by adjusting it to figure out the relation between gene expression and analysis.type (DMRs or CpGs) again.
+
+## Pick most significant regions/cpgs
+
+```{R}
+dmr <- read.csv(
+  "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed_with_annot.csv",
+)
+cpg <- read.csv(
+  "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed_with_annot.csv",
+)
+```
+
+```{R}
+dmr_sig <- dmr %>%
+    group_by(coMethDMR) %>%
+    filter(pval.all == min(pval.all)) %>%
+    select(-X) %>%
+    as.data.frame()
+dmr_sig$fdr.all.adjusted <- p.adjust(
+  dmr_sig$pval.all, method = "fdr"  
+)
+dmr_sig <- dmr_sig[, c(1:5, 20, 6:19)]
+
+table(dmr_sig$estimate.all < 0)
+
+write.csv(
+  dmr_sig,
+  "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed_with_annot_mostSig.csv",
+  row.names = FALSE
+)
+
+dmr_sig_sig <- dmr_sig %>% filter(fdr.all.adjusted < 0.05)
+table(dmr_sig_sig$estimate.all < 0)
+```
+
+```{R}
+cpg_sig <- cpg %>%
+    group_by(cpg) %>%
+    filter(pval.all == min(pval.all)) %>%
+    select(-X) %>%
+    as.data.frame()
+
+cpg_sig$fdr.all.adjusted <- p.adjust(
+  cpg_sig$pval.all, method = "fdr"  
+)
+cpg_sig <- cpg_sig[, c(1:5, 20, 6:19)]
+
+table(cpg_sig$estimate.all < 0)
+
+write.csv(
+  cpg_sig,
+  "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed_with_annot_mostSig.csv",
+  row.names = FALSE
+)
+
+cpg_sig_sig <- cpg_sig %>% filter(fdr.all.adjusted < 0.05)
+table(cpg_sig_sig$estimate.all < 0)
+```
+
+## Calculate -log(P-value) 
+
+```{R}
+neglogP_cpg <- data.frame(
+  id = cpg_sig$cpg,
+  analysis.type = "CpGs",
+  neglogPval = -log(cpg_sig$pval.all),
+  stringsAsFactors = FALSE
+)
+neglogP_dmr <- data.frame(
+  id = dmr_sig$coMethDMR,
+  analysis.type = "DMRs",
+  neglogPval = -log(dmr_sig$pval.all),
+  stringsAsFactors = FALSE
+)
+
+dat <- rbind(neglogP_cpg, neglogP_dmr)
+dat$analysis.type <- as.factor(dat$analysis.type)
+dat$isDMR <- ifelse(dat$analysis.type == "DMRs", 1, 0)
+```
+
+## Fit Generalized Estimation Equation Model
+
+```{R}
+library(gee)
+dat$id <- as.factor(dat$id)
+m_result <- gee(
+  neglogPval ~ isDMR, id = id, data = dat,
+  family = Gamma(link = log), corstr = "exchangeable"
+)
+summary(m_result)
+
+est <- data.frame(m_result$coefficients)
+se <- data.frame(sqrt(diag(m_result$robust.variance)))
+wald.z <- est / se
+p.value <- 2 * (1 - pnorm(abs(wald.z[,1])))
+names(p.value) <- row.names(wald.z)
+p.value
+```
+
+# Session information
+
+```{R}
+devtools::session_info()
+```
