@@ -316,26 +316,6 @@ tab.chrm  %>%
   )
 ```
 
-
-```{R include = FALSE}
-colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
-tab.all.cpg <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
-colnames(tab.all.cpg)[5:6] <- paste0("cpg_",colnames(tab.all.cpg)[5:6])
-colnames(tab.all.region)[5:6] <- paste0("dmr_",colnames(tab.all.cpg)[5:6])
-tab.all <- merge(tab.all.region[,-1],tab.all.cpg[,-1])
-readr::write_csv(tab.all, path = "bacon/Enrichment_analysis_OR_pvalue.csv")
-```
-
-```{R}
-library(patchwork)
-save(plot.single.cpg,plot.region.cpg,single.cpg.plot,region.cpg.plot,file = "supFig2.rda")
-plot.single.cpg <- plot.single.cpg + guides(col = guide_legend(ncol = 1))
-plot.region.cpg <- plot.region.cpg + guides(col = guide_legend(ncol = 1))
-sup.fig2 <- (plot.single.cpg + plot.region.cpg) / single.cpg.plot$plot / region.cpg.plot$plot + plot_annotation(tag_levels = 'A')
-ggsave("Supplemental_figure_2.pdf",plot = sup.fig2,height = 18,width = 10)
-```
-
-
 # Pathway analysis of FDR significant CpGs after inflation correction 
 
 ## For regions + single cpgs
@@ -952,24 +932,6 @@ tab.chrm %>%
   )
 ```
 
-
-```{R include = FALSE}
-colnames(tab.gene)[4] <- colnames(tab.chrm)[4] <- colnames(tab.island)[4]  <- "Variable"
-tab.all.cpg <- tab.gene %>% rbind(tab.island) %>% rbind(tab.chrm)
-colnames(tab.all.cpg)[5:6] <- paste0("cpg_",colnames(tab.all.cpg)[5:6])
-colnames(tab.all.region)[5:6] <- paste0("dmr_",colnames(tab.all.cpg)[5:6])
-tab.all <- merge(tab.all.region[,-1],tab.all.cpg[,-1])
-readr::write_csv(tab.all,path = "bacon_2_4_minus_7/Enrichment_analysis_OR_pvalue.csv")
-```
-
-```{R}
-library(patchwork)
-save(plot.single.cpg,plot.region.cpg,single.cpg.plot,region.cpg.plot,file = "supFig3.rda")
-plot.single.cpg <- plot.single.cpg + guides(col = guide_legend(ncol = 1))
-plot.region.cpg <- plot.region.cpg + guides(col = guide_legend(ncol = 1))
-sup.fig2 <- (plot.single.cpg + plot.region.cpg) / single.cpg.plot$plot / region.cpg.plot$plot + plot_annotation(tag_levels = 'A')
-ggsave("Supplemental_figure_3.pdf",plot = sup.fig2,height = 18,width = 10)
-```
 
 # Pathway analysis of genome-wide significant CpGs (p < 2.4E-7) after inflation correction by Bacon method
 
