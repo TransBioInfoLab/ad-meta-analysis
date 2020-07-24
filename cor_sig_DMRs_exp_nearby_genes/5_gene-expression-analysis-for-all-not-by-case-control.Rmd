@@ -62,7 +62,7 @@ suppressMessages({
   - column "rnaseq_id" is for rnaseq
 - Phenotype data:  pheno_withNeuronProp_df.RDS
 
-## Code to get matched data
+## Get matched data
 
 ```{R}
 ## Reading data created previously
@@ -71,14 +71,14 @@ load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/matched_data.rda")
 dim(matched.dnam)
 dim(matched.exp)
 matched.exp <- matched.exp[rowSums(matched.exp) > 0,]
-matched.phenotype
-gghistogram(
-  matched.phenotype$braaksc,
-  bins = 7,
-  fill = "black",
-  color = "white",
-  alpha = 1
-)
+#matched.phenotype
+# gghistogram(
+#   matched.phenotype$braaksc,
+#   bins = 7,
+#   fill = "black",
+#   color = "white",
+#   alpha = 1
+# )
 ```
 
 # Region analysis
@@ -87,7 +87,7 @@ gghistogram(
 
 ## Analysis: RNA vs DNAm
 
-We will used that that remove confounding effects.
+We will used residuals data for which confounding effects (age at death, sex, cell-type proportions, batch) have been removed.
 
 ```{R}
 load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/residuals.rda")
