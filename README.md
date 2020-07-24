@@ -98,8 +98,7 @@ The main regions/probe annotation used were:
 To prioritize methylation changes most likely to be affected by the 
 AD pathogenesis process, we performed additional analysis using a sample 
 matching strategy to reduce confounding effects due to age. 
-More specifically, we first matched each case with control samples with the same age at death (in years) and sex in the same cohort using matchControls function in e1071 R package.  
-The age and sex matched samples were then analyzed in the same way as described above, except by removing age at death and sex effects in the linear models. 
+More specifically, we first matched each case with control samples with the same age at death (in years) and sex in the same cohort using matchControls function in e1071 R package. The age and sex matched samples were then analyzed in the same way as described above, except by removing age at death and sex effects in the linear models. 
 
 | File                 | HTML |
 |----------------------|----------------------|
