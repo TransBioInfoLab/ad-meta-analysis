@@ -71,7 +71,7 @@ lapply(pheno.ls,dim)
 
 ## Rosmap dataset
 
-```{R, eval = FALSE}
+```{R, eval = TRUE}
 rosmap <- pheno.ls$ROSMAP[, c("Sample", "msex", "braaksc", "age_death")]
 rosmap$age <- rosmap$age_death
 rosmap$status <- ifelse(rosmap$braaksc < 3, "Control", "Case")
@@ -96,27 +96,36 @@ outFile <- data.frame(
   "matchedCases" = rosmap[m_ros$controls, "Sample"]
 )
 
-outFileControl <- merge(outFile, rosmap[, c("Sample", "status", "age", "sex")], 
-                        by.x = "matchedControls",
-                        by.y = "Sample")
+outFileControl <- merge(
+  x = outFile, 
+  y = rosmap[, c("Sample", "status", "age", "sex")],
+  by.x = "matchedControls",
+  by.y = "Sample"
+)
 
 colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
 
-outFileControlCases <- merge(outFileControl, 
-                             rosmap[, c("Sample", "status", "age", "sex")],
-                             by.x = "matchedCases",
-                             by.y = "Sample")
+outFileControlCases <- merge(
+  x = outFileControl, 
+  y = rosmap[, c("Sample", "status", "age", "sex")],
+  by.x = "matchedCases",
+  by.y = "Sample"
+)
 
 colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
 
 outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+```
 
+```{R, eval = FALSE}
 write.csv(
   outFileControlCases,
   paste0(dir.result, "Rosmap_matchedCaseControls.csv"),
   row.names = FALSE
 )
+```
 
+```{R}
 ROSMAP_matchAgeSex <-  outFileControlCases %>% 
   dplyr::filter(abs(age_control - age_case) <= 1)
 dim(ROSMAP_matchAgeSex)
@@ -128,6 +137,9 @@ ROSMAP_samples <- c(
   as.character(ROSMAP_matchAgeSex$matchedControls),
   as.character(ROSMAP_matchAgeSex$matchedCases)
 )
+```
+
+```{R, eval = FALSE}
 saveRDS(
   ROSMAP_samples,
   paste0(dir.result, "ROSMAP_samples.RDS")
@@ -148,13 +160,13 @@ cohort <- "ROSMAP"
 pheno <- "pheno"
 
 info_df <- readRDS(
-  dir("../DATASETS/ROSMAP////",pattern = "info",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/ROSMAP////", pattern = "info", recursive = TRUE, full.names = TRUE)
 )
 mediansMval_df <- readRDS(
-  dir("../DATASETS/ROSMAP/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/ROSMAP/", pattern = "medians", recursive = TRUE, full.names = TRUE)
 )
 pheno_df <- readRDS(
-  dir("../DATASETS/ROSMAP/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/ROSMAP/", pattern = "Neuron", recursive = TRUE, full.names = TRUE)
 )
 samples <- readRDS(
   paste0(dir.result, "ROSMAP_samples.RDS")
@@ -194,7 +206,9 @@ colnames(res_df) <- c(
 )
 
 res_withInfo_df <- cbind(info_df, res_df)
+```
 
+```{R, eval = FALSE}
 saveRDS(
   res_withInfo_df,
   paste0(dir.result, cohort, "_matched_linear_df.rds")
@@ -209,7 +223,7 @@ beta_mat <- readRDS(
   "../DATASETS/ROSMAP/step7_pca_filtering/ROSMAP_QNBMIQ_PCfiltered.RDS"
 ) 
 pheno_df <- readRDS(
-  dir("../DATASETS/ROSMAP/",pattern = "Neuron",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/ROSMAP/", pattern = "Neuron", recursive = TRUE, full.names = TRUE)
 )
 samples <- readRDS(
   paste0(dir.result, "ROSMAP_samples.RDS")
@@ -298,16 +312,20 @@ outFile <-  data.frame(
   "matchedCases" = london[m_london$controls, "sample"]
 )
 
-outFileControl <- merge(outFile,
-                        london[, c("sample", "status", "age.brain", "sex")],
-                        by.x = "matchedControls",
-                        by.y = "sample")
+outFileControl <- merge(
+  x = outFile,
+  y = london[, c("sample", "status", "age.brain", "sex")],
+  by.x = "matchedControls",
+  by.y = "sample"
+)
 colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
 
-outFileControlCases <- merge(outFileControl,
-                             london[, c("sample", "status", "age.brain", "sex")],
-                             by.x = "matchedCases",
-                             by.y = "sample")
+outFileControlCases <- merge(
+  x = outFileControl,
+  y = london[, c("sample", "status", "age.brain", "sex")],
+  by.x = "matchedCases",
+  by.y = "sample"
+)
 colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
 outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
 
@@ -328,6 +346,9 @@ London_samples <- c(
   as.character(London_matchAgeSex$matchedControls),
   as.character(London_matchAgeSex$matchedCases)
 )
+```
+
+```{R, eval = FALSE}
 saveRDS(
   London_samples,
   paste0(dir.result, "London_samples.RDS")
@@ -349,13 +370,13 @@ cohort <- "London"
 pheno <- "pheno"
 
 info_df <- readRDS(
-  dir("../DATASETS/LONDON///",pattern = "info",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/LONDON///", pattern = "info", recursive = TRUE, full.names = TRUE)
 )
 mediansMval_df <- readRDS(
-  dir("../DATASETS/LONDON/",pattern = "medians",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/LONDON/", pattern = "medians", recursive = TRUE, full.names = TRUE)
 )
 pheno_df <- readRDS(
-  dir("../DATASETS/LONDON/",pattern = "NeuronProp_df",recursive = TRUE,full.names = TRUE)
+  dir(path = "../DATASETS/LONDON/", pattern = "NeuronProp_df", recursive = TRUE, full.names = TRUE)
 )
 samples <- readRDS(
   paste0(dir.result, "London_samples.RDS")
@@ -400,7 +421,9 @@ colnames(res_df) <- c(
 )
 
 res_withInfo_df <- cbind(info_df, res_df)
+```
 
+```{R, eval = FALSE}
 saveRDS(
   res_withInfo_df,
   paste0(dir.result, cohort, "_matched_linear_df.rds")
@@ -461,11 +484,13 @@ results_ordered_df <- plyr::adply(mval_mat,1, function(row){
     sumOneRegion_df = sumOneRegion_df
   )
   result
-}, .progress = "time",.parallel = TRUE,.id = "cpg")
+}, .progress = "time", .parallel = TRUE, .id = "cpg")
 colnames(results_ordered_df)[1] <- "cpg"
 
 identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+```
 
+```{R, eval = FALSE}
 write.csv(
   results_ordered_df,
   paste0(dir.result, "London_matched_single_cpg_linear_df.csv"),
@@ -502,20 +527,25 @@ str(gasparoni)
   )
 }
 
-outFile <- data.frame("matchedControls" = gasparoni[m_gasparoni$cases, "sample"], 
-                      "matchedCases" = gasparoni[m_gasparoni$controls, "sample"]
+outFile <- data.frame(
+  "matchedControls" = gasparoni[m_gasparoni$cases, "sample"], 
+  "matchedCases" = gasparoni[m_gasparoni$controls, "sample"]
 )
 
-outFileControl <- merge(outFile,
-                        gasparoni[, c("sample", "status", "age.brain", "sex")],
-                        by.x = "matchedControls",
-                        by.y = "sample")
-colnames(outFileControl)[3:5] <-   c("status_control", "age_control", "sex_control")
+outFileControl <- merge(
+  x = outFile, 
+  y = gasparoni[, c("sample", "status", "age.brain", "sex")],
+  by.x = "matchedControls",
+  by.y = "sample"
+)
+colnames(outFileControl)[3:5] <- c("status_control", "age_control", "sex_control")
 
-outFileControlCases <- merge(outFileControl,
-                             gasparoni[, c("sample", "status", "age.brain", "sex")],
-                             by.x = "matchedCases",
-                             by.y = "sample")
+outFileControlCases <- merge(
+  x = outFileControl,
+  y = gasparoni[, c("sample", "status", "age.brain", "sex")],
+  by.x = "matchedCases",
+  by.y = "sample"
+)
 colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
 
 outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
@@ -524,13 +554,17 @@ table(outFileControlCases$status_control,
       outFileControlCases$sex_control)
 table(outFileControlCases$status_case,
       outFileControlCases$sex_case)
+```
 
+```{R, eval = FALSE}
 write.csv(
   outFileControlCases,
   paste0(dir.result, "Gasparoni_matchedCaseControls.csv"),
   row.names = FALSE
 )
+```
 
+```{R, eval = FALSE}
 Gasparoni_matchAgeSex <-  outFileControlCases %>% 
   dplyr::filter(abs(age_control - age_case) <= 1)
 dim(Gasparoni_matchAgeSex)
@@ -542,6 +576,9 @@ Gasparoni_samples <- c(
   as.character(Gasparoni_matchAgeSex$matchedControls),
   as.character(Gasparoni_matchAgeSex$matchedCases)
 )
+```
+
+```{R, eval = FALSE}
 saveRDS(
   Gasparoni_samples,
   paste0(dir.result, "Gasparoni_samples.RDS")
@@ -588,13 +625,17 @@ outFileControlCases <-  merge(
 )
 colnames(outFileControlCases)[6:8] <- c("status_case", "age_case", "sex_case")
 outFileControlCases <- outFileControlCases[, c(2, 3, 4, 5, 1, 6, 7, 8)]
+```
 
+```{R, eval = FALSE}
 write.csv(
   outFileControlCases,
   paste0(dir.result, "MtSinai_matchedCaseControls.csv"),
   row.names = FALSE
 )
+```
 
+```{R, eval = FALSE}
 MtSinai_matchAgeSex <-  outFileControlCases %>% 
   dplyr::filter(abs(age_control - age_case) <= 1)
 dim(MtSinai_matchAgeSex)
@@ -606,7 +647,9 @@ MtSinai_samples <- c(
   as.character(MtSinai_matchAgeSex$matchedControls),
   as.character(MtSinai_matchAgeSex$matchedCases)
 )
+```
 
+```{R, eval = FALSE}
 saveRDS(
   MtSinai_samples,
   paste0(dir.result, "MtSinai_samples.RDS")
@@ -678,7 +721,9 @@ colnames(res_df) <- c(
 )
 
 res_withInfo_df <- cbind(info_df, res_df)
+```
 
+```{R, eval = FALSE}
 saveRDS(
   res_withInfo_df,
   paste0(dir.result, cohort, "_matched_linear_df.rds")
@@ -743,7 +788,9 @@ results_ordered_df <- plyr::adply(mval_mat,1, function(row){
 colnames(results_ordered_df)[1] <- "cpg"
 
 identical(row.names(mval_mat), results_ordered_df$cpg %>% as.character())
+```
 
+```{R, eval = FALSE}
 write.csv(
   results_ordered_df,
   paste0(dir.result, "MtSinai_matched_single_cpg_linear_df.csv"),
@@ -768,11 +815,13 @@ results_ordered_df %>% head
 preMeta <- function(cohort){
   
   ### Load data
-  file <- dir(path = "./DATASETS/matched_analysis_results",
-              pattern = paste0(cohort,".*matched_linear_df"),
-              recursive = T,
-              full.names = TRUE,
-              ignore.case = T)
+  file <- dir(
+    path = "./DATASETS/matched_analysis_results",
+    pattern = paste0(cohort,".*matched_linear_df"),
+    recursive = T,
+    full.names = TRUE,
+    ignore.case = T
+  )
   linear.results.final <- readRDS(file)
   
   ### select the most sig cometh region for each input region
@@ -895,6 +944,9 @@ meta_ordered_withAnnot_df <- meta_ordered_withAnnot_df %>%
                   (ncol(meta_ordered_withAnnot_df) - 3):ncol(meta_ordered_withAnnot_df),
                   2:(ncol(meta_ordered_withAnnot_df) - 4))
   )
+```
+
+```{R, eval = FALSE}
 ### save dataset
 write.csv(
   meta_ordered_withAnnot_df,
@@ -907,7 +959,9 @@ meta_all_sig <- meta_ordered_withAnnot_df[
     (meta_ordered_withAnnot_df$fdr < 0.05),  
   ] #dim: 36 34
 row.names(meta_all_sig) <- NULL
+```
 
+```{R, eval = FALSE}
 write.csv(
   meta_all_sig,
   paste0(dir.result, "meta_analysis_matched_sig_df.csv"),
@@ -1069,7 +1123,9 @@ meta_sig_final <- meta_all_final[
   meta_all_final$crossHyb_bi == 0 &
     meta_all_final$smoke_bi == 0,
 ] #dim: 32 48
+```
 
+```{R, eval = FALSE}
 ### Save
 write.csv(
   meta_sig_final %>% as.data.frame,
@@ -1164,11 +1220,13 @@ makeVennDiagram(
 ## Import datasets  
 
 ```{R, eval = FALSE}
-results.files <- dir("./DATASETS/matched_analysis_results/",
-                     pattern = "single_cpg_linear_df.csv",
-                     recursive = TRUE,
-                     full.names = TRUE,
-                     ignore.case = TRUE)
+results.files <- dir(
+  path = "./DATASETS/matched_analysis_results/",
+  pattern = "single_cpg_linear_df.csv",
+  recursive = TRUE,
+  full.names = TRUE,
+  ignore.case = TRUE
+)
 
 for(i in results.files){
   data <- readr::read_csv(i)
@@ -1201,44 +1259,45 @@ dim(multi_cohorts)
 ```{R, eval = FALSE}
 ### calculate meta analysis z scores and p values
 doParallel::registerDoParallel(cores = parallel::detectCores()/2)
-meta_df <- plyr::adply(.data = multi_cohorts, 
-                       .margins = 1, 
-                       .fun =  function(rowOne_df){
-                         
-                         est <- rowOne_df[grep("estimate",colnames(rowOne_df))] %>% as.numeric
-                         
-                         direction <-  paste(ifelse(
-                           is.na(est), ".",
-                           ifelse(est > 0, "+", "-")
-                         ),collapse = "")
-                         
-                         se <- rowOne_df[grep("se",colnames(rowOne_df))] %>% as.numeric
-                         cohort <- gsub("_se","",grep("se",colnames(rowOne_df),value = T))
-                         rowOne_reform_df <- data.frame(
-                           cohort = cohort,
-                           est = est,
-                           se = se,
-                           stringsAsFactors = FALSE
-                         )
-                         
-                         f <- metagen(
-                           TE = est,
-                           seTE = se,
-                           data = rowOne_reform_df
-                         )
-                         
-                         tibble::tibble(
-                           cpg = rowOne_df$cpg,
-                           estimate = f$TE.fixed,
-                           se = f$seTE.fixed,
-                           pVal.fixed = f$pval.fixed,
-                           pVal.random = f$pval.random,
-                           pValQ = f$pval.Q,
-                           direction = direction
-                         )
-                       }  , .progress = "time",
-                       .parallel = TRUE,
-                       .id = NULL
+meta_df <- plyr::adply(
+  .data = multi_cohorts, 
+  .margins = 1, 
+  .fun =  function(rowOne_df){
+    
+    est <- rowOne_df[grep("estimate",colnames(rowOne_df))] %>% as.numeric
+    
+    direction <-  paste(ifelse(
+      is.na(est), ".",
+      ifelse(est > 0, "+", "-")
+    ),collapse = "")
+    
+    se <- rowOne_df[grep("se",colnames(rowOne_df))] %>% as.numeric
+    cohort <- gsub("_se","",grep("se",colnames(rowOne_df),value = T))
+    rowOne_reform_df <- data.frame(
+      cohort = cohort,
+      est = est,
+      se = se,
+      stringsAsFactors = FALSE
+    )
+    
+    f <- metagen(
+      TE = est,
+      seTE = se,
+      data = rowOne_reform_df
+    )
+    
+    tibble::tibble(
+      cpg = rowOne_df$cpg,
+      estimate = f$TE.fixed,
+      se = f$seTE.fixed,
+      pVal.fixed = f$pval.fixed,
+      pVal.random = f$pval.random,
+      pValQ = f$pval.Q,
+      direction = direction
+    )
+  }  , .progress = "time",
+  .parallel = TRUE,
+  .id = NULL
 )
 
 ### create final pVal
@@ -1260,7 +1319,9 @@ meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final),]
 ```{R, eval = FALSE}
 library(sesame)
 probes.info <- sesameDataGet("HM450.hg19.manifest")
-probes.info <- probes.info[meta_final_ordered_df$cpg %>% as.character()] %>% as.data.frame %>% dplyr::select(c("seqnames","start","end"))
+probes.info <- probes.info[meta_final_ordered_df$cpg %>% as.character()] %>% 
+  as.data.frame %>% 
+  dplyr::select(c("seqnames","start","end"))
 
 result_annot_df <- merge(
   y = meta_final_ordered_df,
@@ -1270,21 +1331,27 @@ result_annot_df <- merge(
   all.y = TRUE,
   sort = FALSE
 )
+```
 
+```{R, eval = FALSE}
 ### final raw data
 write.csv(
   result_annot_df  %>% as.data.frame(),
   paste0(dir.result, "meta_analysis_matched_single_cpg_df.csv"),
   row.names = FALSE
 )
+```
 
+```{R, eval = FALSE}
 ### prepare data for comb-p
 result_for_combp_df <- result_annot_df[
   , c("seqnames", "start", "end", "pVal.final")
   ]
 colnames(result_for_combp_df)[c(1,4)] <- c("chr", "pValue")
 result_for_combp_df$chr <- as.character(result_for_combp_df$chr)
+```
 
+```{R, eval = FALSE}
 write.csv(
   result_for_combp_df,
   paste0(dir.result, "meta_analysis_matched_single_cpg_df_for_combp.csv"),
@@ -1297,20 +1364,23 @@ write.csv(
 ```{R, eval = FALSE}
 ### Exclude non-significant probes
 result_annot_sig_df <- result_annot_df %>% filter(fdr < 0.05) 
+```
 
+```{R, eval = FALSE}
 write.csv(
   result_annot_sig_df %>% as.data.frame(),
   paste0(dir.result, "meta_analysis_matched_single_cpg_sig_df.csv"),
   row.names = FALSE
 )
+```
 
+```{R, eval = FALSE}
 ### Get crosshybrdizing probes
 library(ExperimentHub)
 
 eh = ExperimentHub()
 query(eh, "DMRcate")
 crosshyb <- eh[["EH3129"]]
-
 
 ### Get significant smoking probes
 smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
@@ -1343,6 +1413,9 @@ result_final <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df)
 result_final_ordered <- result_final[
   ,c(1:4, 23:26, 5:21)
 ]
+```
+
+```{R, eval = FALSE}
 write.csv(
   result_final_ordered %>% as.data.frame(),
   paste0(dir.result, "meta_analysis_matched_single_cpg_sig_no_crossHyb_smoking_df.csv"),
@@ -1474,7 +1547,7 @@ matched_dmr_direction <- ifelse(
 table(meta_dmr_direction == matched_dmr_direction)
 ```
 
-```{R}
+```{R, eval = FALSE}
 write.csv(
    sig_matched_cpgs,
    paste0(dir.result, "meta_matched_common_cpgs.csv"),
