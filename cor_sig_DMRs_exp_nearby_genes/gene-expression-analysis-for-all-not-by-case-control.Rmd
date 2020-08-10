@@ -174,7 +174,7 @@ tab <- plyr::adply(
 )
 ```
 
-```{R, eval = TRUE}
+```{R, eval = FALSE}
 readr::write_csv(
     tab,
     path = "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window.csv"
@@ -222,7 +222,7 @@ output2 <- merge(
 output2 <- output2 %>% arrange(pval.all)
 ```
 
-```{R, eval = TRUE}
+```{R, eval = FALSE}
 write.csv(
     output2,
     file = "./NatComm_revision/DATASETS/gene_expression_results/results_regions_lm_250kb_window_renamed.csv",
@@ -238,7 +238,7 @@ write.csv(
 
 Load DNAm data that removed confounding effects.
 
-```{R,eval = TRUE, include = FALSE}
+```{R, eval = TRUE, include = FALSE}
 load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/residuals_cpg.rda")
 ```
 
@@ -247,8 +247,8 @@ load("../../../coMethDMR_metaAnalysis/DNAm_RNA/data/residuals_cpg.rda")
 The function `get_region_target_gene` will extend the regions $+-250Kbp$ and return the overlapping genes.
 
 ```{R}
-dmr.gr <- sesameData::sesameDataGet(
-    "HM450.hg19.manifest")[row.names(resid_met_cpg),] 
+probes.info <- sesameData::sesameDataGet("HM450.hg19.manifest")
+dmr.gr <- probes.info[row.names(resid_met_cpg),] 
 regions.genes <- get_region_target_gene(
   regions.gr = dmr.gr,
   genome = "hg19",
@@ -447,7 +447,7 @@ cpg.annot <- merge(
 cpg.annot <- cpg.annot %>% arrange(pval.all)
 ```
 
-```{R, eval = TRUE}
+```{R, eval = FALSE}
 write.csv(
   cpg.annot,
   "./NatComm_revision/DATASETS/gene_expression_results/results_single_cpg_lm_250kb_window_renamed_with_annot.csv"
