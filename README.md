@@ -70,20 +70,6 @@ The main regions/probe annotation used were:
 |----------------------|----------------------|
 | enrichment_analysis/enrichment-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_Enrichment_analysis)|
 
-### Sensitivity analysis
-
-This section includes scripts for:
-1. Controlling bias and inflation in the association studies previously described on the "Single cohort analysis" section. 
-2. Meta-analyzing individual CpG controlled results across different cohorts as described previously on section "Meta-analysis".
-3. Enrichment analysis of controlled results as described previously on section "Enrichment analysis of significant DNA methylation changes".
-4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs (file: hpmixed_glimmix.sas).
-
-| File                 | HTML |
-|----------------------|-------------| 
-| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
-| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
-| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
-| sensitivity_analysis/hpmixed_glimmix.sas  |  |
 
 
 ### Matched Meta-analysis
@@ -130,6 +116,23 @@ recent AD meta-analysis102 (PMID: 30820047), using one-sided Fisher’s test.
 | File                 |                      | 
 |----------------------|----------------------|
 |  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
+
+### Sensitivity analysis
+
+To assess the potential inflation in our results, we estimated genomic inflation factors using both the conventional and the _bacon_ method (PMID: 28129774), specifically proposed for EWAS. In addition, we also conducted sensitivity analyses to confirm main findings from our enrichment analysis, using inflation corrected effect sizes computed using the _bacon_ method.  
+
+This section includes scripts for:
+1. Estimation of genomic inflation factors using both the conventional and _bacon_ method for results previously described in the "Single cohort analysis" section. 
+2. Meta-analyzing inflation corrected individual CpG results across different cohorts.
+3. Enrichment analysis of significant CpGs obtained in step 2., using the same approach as previously described in section "Enrichment analysis of significant DNA methylation changes" above.
+4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs in the same chromosome (file: hpmixed_glimmix.sas).
+
+| File                 | HTML |
+|----------------------|-------------| 
+| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
+| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
+| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
+| sensitivity_analysis/hpmixed_glimmix.sas  |  |
 
 
 
