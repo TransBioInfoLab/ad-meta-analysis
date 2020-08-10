@@ -96,6 +96,7 @@ More specifically, we first matched each case with control samples with the same
 | File                 | HTML |
 |----------------------|----------------------|
 | meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_matched_analysis)|
+| meta_analysis/6_matched-analysis-by-both-age-and-sex.Rmd | [Link to compiled report](https://www.dropbox.com/s/7f0zb9icxs0v69g/6_matched-analysis-by-both-age-and-sex.html?dl=1)|
 
 ### Correlation of methylation changes in brain and blood samples
 
