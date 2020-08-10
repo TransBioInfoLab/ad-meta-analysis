@@ -76,14 +76,14 @@ This section includes scripts for:
 1. Controlling bias and inflation in the association studies previously described on the "Single cohort analysis" section. 
 2. Meta-analyzing individual CpG controlled results across different cohorts as described previously on section "Meta-analysis".
 3. Enrichment analysis of controlled results as described previously on section "Enrichment analysis of significant DNA methylation changes".
-4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs.
+4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs (file: hpmixed_glimmix.sas).
 
 | File                 | HTML |
 |----------------------|-------------| 
-| single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
-| Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
-| enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
-| hpmixed_glimmix.sas  |  |
+| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
+| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
+| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
+| sensitivity_analysis/hpmixed_glimmix.sas  |  |
 
 
 ### Matched Meta-analysis
