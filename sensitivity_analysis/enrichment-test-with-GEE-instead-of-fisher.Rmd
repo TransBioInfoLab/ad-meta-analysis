@@ -1,0 +1,281 @@
+---
+title: "Nature Communication Revision"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# Paths
+
+```{R}
+dir.meta.single.cpg <- "../meta_analysis_single_cpg_results/"
+dir.data <- "./DATASETS"
+dir.fig <- "./FIGURES"
+dir.revision <- "../../../DRAFT_REVISION_NatComm_6-2020/Individual files/"
+dir.annot <- "../../../DATA_annotations/"
+```
+
+# Enrichment analysis with GEE instead of fisher's exact test
+
+```{R, message = FALSE, warning = FALSE, result = "hide"}
+library(gee)
+library(dplyr)
+library(GenomicRanges)
+```
+
+```{R}
+datAnnot <- function (data,
+                      arrayType = c("450k","EPIC"),
+                      annotation.gr,
+                      enrichment.type =  c("island","gene","customized")
+){
+
+    arrayType <- match.arg(arrayType)
+    enrichment.type <- match.arg(enrichment.type)
+
+    if (enrichment.type == "island") {
+
+        col.name <- "Relation_to_Island"
+
+        if (arrayType == "450k") {
+            annot <- IlluminaHumanMethylation450kanno.ilmn12.hg19::Islands.UCSC
+        } else {
+            annot <- IlluminaHumanMethylationEPICanno.ilm10b2.hg19::Islands.UCSC
+        }
+
+        annot$Relation_to_Island <-  gsub("N_|S_","",annot$Relation_to_Island)
+
+    } else if (enrichment.type == "gene") {
+        col.name <- "UCSC_RefGene_Group_hierarchy"
+
+        if (arrayType == "450k") {
+            annot <- IlluminaHumanMethylation450kanno.ilmn12.hg19::Other
+        } else {
+            annot <- IlluminaHumanMethylationEPICanno.ilm10b2.hg19::Other
+        }
+
+        annot$UCSC_RefGene_Group_hierarchy <- annot$UCSC_RefGene_Group
+        annot$UCSC_RefGene_Group_hierarchy[grep("TSS200",annot$UCSC_RefGene_Group_hierarchy)] <- "TSS200"
+        annot$UCSC_RefGene_Group_hierarchy[grep("TSS1500",annot$UCSC_RefGene_Group_hierarchy)] <- "TSS1500"
+        annot$UCSC_RefGene_Group_hierarchy[grep("5'UTR",annot$UCSC_RefGene_Group_hierarchy)] <- "5'UTR"
+        annot$UCSC_RefGene_Group_hierarchy[grep("1stExon",annot$UCSC_RefGene_Group_hierarchy)] <- "1stExon"
+        annot$UCSC_RefGene_Group_hierarchy[grep("Body",annot$UCSC_RefGene_Group_hierarchy)] <- "Body"
+        annot$UCSC_RefGene_Group_hierarchy[grep("3'UTR",annot$UCSC_RefGene_Group_hierarchy)] <- "3'UTR"
+        annot$UCSC_RefGene_Group_hierarchy[annot$UCSC_RefGene_Group_hierarchy == ""] <- "Intergenic"
+        annot$UCSC_RefGene_Group_hierarchy[is.na(annot$UCSC_RefGene_Group_hierarchy)] <- "Intergenic"
+    }  else if (enrichment.type == "customized") {
+        probes.gr <- IlluminaHumanMethylation450kanno.ilmn12.hg19::Locations %>%
+            makeGRangesFromDataFrame(start.field = "pos",end.field = "pos")
+        hits <- findOverlaps(probes.gr,annotation.gr,select = "first")
+        col.name <- names(values(annotation.gr))[1]
+        annot <- data.frame(row.names = names(probes.gr),
+                            values(annotation.gr)[,1][hits],stringsAsFactors = FALSE)
+        colnames(annot) <- col.name
+    }
+    
+    as.data.frame(
+        merge(
+            data, annot,
+            by.x = "cpg",
+            by.y = "row.names",
+            sort = FALSE
+        )
+    )
+    
+
+}
+```
+
+## Get data
+
+```{R}
+cpg.df <- read.csv(
+  paste0(dir.meta.single.cpg,
+         "/meta_analysis_single_cpg_df.csv")
+) 
+dim(cpg.df)
+
+cpg.df.sig <- read.csv(
+  paste0(dir.meta.single.cpg,
+         "/meta_analysis_single_cpg_sig_no_crossHyb_smoking_df.csv")
+) 
+dim(cpg.df.sig)
+
+cpg.df.sig
+cpg.df.sig.hyper <- cpg.df.sig  %>%  filter(estimate > 0)
+cpg.df.sig.hypo <- cpg.df.sig  %>%  filter(estimate < 0)
+```
+
+## Add genomic annotation
+
+```{R}
+# ChroMHMM
+ChmmModels <- readr::read_tsv("https://egg2.wustl.edu/roadmap/data/byFileType/chromhmmSegmentations/ChmmModels/coreMarks/jointModel/final/E073_15_coreMarks_segments.bed",col_names = FALSE)
+colnames(ChmmModels) <- c("chr","start","end","state")
+states <- readr::read_csv("chromHMM_labels.csv",col_names = FALSE)
+states$X1 <- paste0("E",states$X1)  
+ChmmModels$state <- states$X3[match(ChmmModels$state,states$X1)]
+ChmmModels.gr <- makeGRangesFromDataFrame(ChmmModels,keep.extra.columns = TRUE)
+```
+
+```{R}
+dat <- datAnnot(
+    data = cpg.df,
+    enrichment.type = "island"
+)
+dat <- datAnnot(
+    data = dat,
+    enrichment.type = "gene"
+)
+dat <- datAnnot(
+    data = dat,
+    annotation.gr = ChmmModels.gr,
+    enrichment.type = "customized"
+)
+```
+
+```{R}
+dat$isSig <- ifelse(
+  dat$cpg %in% cpg.df.sig$cpg, 1, 0
+)
+dat$isSig_hyper <- ifelse(
+  dat$cpg %in% cpg.df.sig.hyper$cpg, 1, 0
+)
+dat$isSig_hypo <- ifelse(
+  dat$cpg %in% cpg.df.sig.hypo$cpg, 1, 0
+)
+```
+
+```{R}
+dat_gee <- dat %>%
+    select(cpg, seqnames,
+           Relation_to_Island, UCSC_RefGene_Group_hierarchy, state,
+           isSig_hyper, isSig_hypo)
+```
+
+```{R}
+# f <- gee::gee(
+#   isSig_hypo ~ isIsland, id = seqnames, data = dat_gee,
+#   family = binomial, corstr = "exchangeable"
+# )
+```
+
+because gee model takes too long, we decided to use models in SAS, so for now I'm  
+creating dataset for running models in SAS
+
+### Create binary vars from Relation_to_Island
+
+```{R}
+dat_gee$isIsland <- ifelse(
+    dat_gee$Relation_to_Island == "Island", 1, 0
+)
+dat_gee$isOpenSea <- ifelse(
+    dat_gee$Relation_to_Island == "OpenSea", 1, 0
+)
+dat_gee$isShelf <- ifelse(
+    dat_gee$Relation_to_Island == "Shelf", 1, 0
+)
+dat_gee$isShore <- ifelse(
+    dat_gee$Relation_to_Island == "Shore", 1, 0
+)
+```
+
+### Create binary vars from UCSC_RefGene_Group_hierarchy
+
+```{R}
+dat_gee$is1stExon <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "1stExon", 1, 0
+)
+dat_gee$is3UTR <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "3'UTR", 1, 0
+)
+dat_gee$is5UTR <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "5'UTR", 1, 0
+)
+dat_gee$isBody <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "Body", 1, 0
+)
+dat_gee$isIntergenic <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "Intergenic", 1, 0
+)
+dat_gee$isTSS1500 <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "TSS1500", 1, 0
+)
+dat_gee$isTSS200 <- ifelse(
+    dat_gee$UCSC_RefGene_Group_hierarchy == "TSS200", 1, 0
+)
+```
+
+### Create binary vars from state
+
+```{R}
+dat_gee$isActiveTSS <- ifelse(
+    dat_gee$state == "Active TSS", 1, 0
+)
+dat_gee$isBivalentEnhancer <- ifelse(
+    dat_gee$state == "Bivalent Enhancer", 1, 0
+)
+dat_gee$isBivalentPoisedTSS <- ifelse(
+    dat_gee$state == "Bivalent/Poised TSS", 1, 0
+)
+dat_gee$isEnhancers <- ifelse(
+    dat_gee$state == "Enhancers", 1, 0
+)
+dat_gee$isFlankingActiveTSS <- ifelse(
+    dat_gee$state == "Flanking Active TSS", 1, 0
+)
+dat_gee$isFlankingBivalentTSSEnh <- ifelse(
+    dat_gee$state == "Flanking Bivalent TSS/Enh", 1, 0
+)
+dat_gee$isGenicenhancers <- ifelse(
+    dat_gee$state == "Genic enhancers", 1, 0
+)
+dat_gee$isHeterochromatin <- ifelse(
+    dat_gee$state == "Heterochromatin", 1, 0
+)
+dat_gee$isQuiescentLow <- ifelse(
+    dat_gee$state == "Quiescent/Low", 1, 0
+)
+dat_gee$isRepressedPolyComb <- ifelse(
+    dat_gee$state == "Repressed PolyComb", 1, 0
+)
+dat_gee$isStrongtranscription <- ifelse(
+    dat_gee$state == "Strong transcription", 1, 0
+)
+dat_gee$isTranscratgene5and3 <- ifelse(
+    dat_gee$state == "Transcr. at gene 5' and 3'", 1, 0
+)
+dat_gee$isWeakRepressedPolyComb <- ifelse(
+    dat_gee$state == "Weak Repressed PolyComb", 1, 0
+)
+dat_gee$isWeaktranscription <- ifelse(
+    dat_gee$state == "Weak transcription", 1, 0
+)
+dat_gee$isZNFgenesrepeats <- ifelse(
+    dat_gee$state == "ZNF genes & repeats", 1, 0
+)
+```
+
+```{R}
+write.csv(
+    dat_gee,
+    paste0(dir.data, "/dat_gee.csv"),
+    row.names = FALSE
+)
+```
+
