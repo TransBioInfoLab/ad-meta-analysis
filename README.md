@@ -33,6 +33,7 @@ Each of the files has the following sections:
 | single_cohort_analysis/MtSinai.Rmd          |   Mt. Sinai (Smith, 2018)  | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_MtSinai_dataset)|
 | single_cohort_analysis/ROSMAP.Rmd           |   ROSMAP (PMID: 29865057)    | [Link to compiled report](https://rpubs.com/tiagochst/AD_supplemental_ROSMAP_dataset)|
 
+
 ### Meta-analysis 
 
 To meta-analyze individual CpG results across different cohorts, we used the meta R package. 
@@ -69,6 +70,22 @@ The main regions/probe annotation used were:
 |----------------------|----------------------|
 | enrichment_analysis/enrichment-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_Enrichment_analysis)|
 
+### Sensitivity analysis
+
+This section includes scripts for:
+1. Controlling bias and inflation in the association studies previously described on the "Single cohort analysis" section. 
+2. Meta-analyzing individual CpG controlled results across different cohorts as described previously on section "Meta-analysis".
+3. Enrichment analysis of controlled results as described previously on section "Enrichment analysis of significant DNA methylation changes".
+
+
+| File                 | HTML |
+|----------------------|-------------| 
+| single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
+| Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
+| enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
+| hpmixed_glimmix.sas  |  |
+
+
 ### Matched Meta-analysis
 
 To prioritize methylation changes most likely to be affected by the 
@@ -100,7 +117,7 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 
 | File                 |                      | 
 |----------------------|----------------------|
-| cor_sig_DMRs_exp_nearby_genes/DMR_gene_expression_analysis.Rmd | [Link to compiled report](https://www.dropbox.com/s/eceku47442qk2gq/DMR_gene_expression_analysis.html?dl=0)|
+| cor_sig_DMRs_exp_nearby_genes/gene-expression-analysis-for-all-not-by-case-control.Rmd| [Link to compiled report](https://www.dropbox.com/s/xark1mvt9qzseqv/5_gene-expression-analysis-for-all-not-by-case-control.html?dl=1)|
 
 ### Overlap with genetic susceptibility loci
 
