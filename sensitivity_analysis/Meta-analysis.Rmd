@@ -1,5 +1,5 @@
 ---
-title: "Sensitivity analysis - inflation corrected meta-analysis using bacon method"
+title: "Sensitivity Analysis - estimation of genomic inflation"
 author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
 date: "`r Sys.Date()`"
 output:
@@ -51,7 +51,7 @@ estimation_of_inflation <- function(data){
 
   # inflation factor - last term is median from chisq distrn with 1 df  
   inflationFactor <- median(data$chisq,na.rm = TRUE) / qchisq(0.5, 1)
-  print("Genomic Inflation Factor")
+  print("lambda")
   print(inflationFactor)
 
   # genome-wide sig cpgs
@@ -67,10 +67,9 @@ estimation_of_inflation <- function(data){
   )
 
   # inflation factor
-  print("Genomic Inflation factor by bacon method")
+  print("lambda.bacon")
   print(inflation(bc))
-  print(bias(bc))
-
+  
   ### 3. Create final dataset
   data.with.inflation <- data.frame(
     data,
@@ -81,7 +80,6 @@ estimation_of_inflation <- function(data){
     stringsAsFactors = FALSE
   )
   data.with.inflation <- data.with.inflation %>% select(-c(zvalue, chisq))
-  
   return(
     list("data.with.inflation" = data.with.inflation, 
           "inflationFactor" =   inflationFactor,
@@ -94,7 +92,7 @@ estimation_of_inflation <- function(data){
 
 ## GASPARONI
 
-```{R, include = TRUE, results = "hide"}
+```{R, include = FALSE}
 res <- read.csv(
     file.path(dir.gasparoni, "Gasparoni_single_cpg_pVal_df.csv")
 )
@@ -102,20 +100,68 @@ res <- read.csv(
 
 ```{R}
 est.inflation <- estimation_of_inflation(res)
-```
+res.with.inflation <- est.inflation$data.with.inflation
 
-```{R, eval = FALSE}
+
 cohort <- "GASPARONI"
 write.csv(
-    est.inflation$data.with.inflation,
+    res.with.inflation,
     file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
     row.names = FALSE
 )
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 2 sig
+
+```
+
+```{R, include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+
+hist.gasparoni <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3, position = "identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.gasparoni
+# dev.off()
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 6.2,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) +
+text(
+  x = 0.5, 
+  y = 5.4,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.gasparoni <- recordPlot()
+
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqplot.gasparoni
+dev.off()
 ```
 
 ## LONDON
 
-```{R, include = TRUE, results = "hide"}
+```{R, include = FALSE}
 res <- read.csv(
     file.path(dir.london, "London_PFC_single_cpg_pVal_df.csv")
 )
@@ -123,19 +169,71 @@ res <- read.csv(
 
 ```{R}
 est.inflation <- estimation_of_inflation(res)
-```
+res.with.inflation <- est.inflation$data.with.inflation
 
-```{R, eval = FALSE}
 cohort <- "LONDON"
+
 write.csv(
-    est.inflation$data.with.inflation,
+    res.with.inflation,
     file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
     row.names = FALSE
 )
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 11 sig
+
 ```
+
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+hist.london <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.london
+#dev.off()
+
+
+p <- ggplot(res.with.inflation, aes(sample = pValue))
+p + stat_qq() + stat_qq_line()
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 7.5,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5, 
+  y = 6.5,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.london <- recordPlot()
+
+# Save
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqplot.london
+dev.off()
+```
+
 ## MTSINAI
 
-```{R, include = TRUE, results = "hide"}
+```{R, include = FALSE}
 res <- read.csv(
     file.path(dir.mtsinai, "MtSinai_single_cpg_pVal_df.csv")
 )
@@ -143,15 +241,63 @@ res <- read.csv(
 
 ```{R}
 est.inflation <- estimation_of_inflation(res)
-```
+res.with.inflation <- est.inflation$data.with.inflation
 
-```{R, eval = FALSE}
 cohort <- "MTSINAI"
+
 write.csv(
-    est.inflation$data.with.inflation,
+    res.with.inflation,
     file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
     row.names = FALSE
 )
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 0 sig
+
+```
+
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+
+hist.mtsinai <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3, position = "identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.mtsinai
+# dev.off()
+
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 6.2,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5, 
+  y = 5.4,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqPlot.mtsinai <- recordPlot()
+
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqPlot.mtsinai
+dev.off()
 ```
 
 ## ROSMAP
@@ -164,367 +310,140 @@ res <- read.csv(
 
 ```{R rosmap}
 est.inflation <- estimation_of_inflation(res)
-```
+res.with.inflation <- est.inflation$data.with.inflation
 
-```{R, eval = FALSE}
 cohort <- "ROSMAP"
+
 write.csv(
-    est.inflation$data.with.inflation,
+    res.with.inflation,
     file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
     row.names = FALSE
 )
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 34 sig
 ```
 
-# Meta analysis - after subjecting single CpG p-values to inflation correction by bacon method
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
 
-```{R, message = FALSE, warning = FALSE, result = "hide"}
-library(dplyr)
-library(meta)
-```
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
 
-## Import datasets and pre-process for each cohort 
+plot_df <- rbind(pValue, pValue.bacon)
 
-```{R, eval = TRUE}
-results.files <- dir(
-    dir.data,
-    pattern = "single_cpg_pVal_df.csv",
-    recursive = TRUE,
-    full.names = TRUE,
-    ignore.case = TRUE
+hist.rosmap <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.rosmap
+# dev.off()
+
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 9,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5,
+  y = 8,
+  labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
 )
-results.files
-```
+qqPlot.rosmap <- recordPlot()
 
-```{R, eval = TRUE}
-for(i in results.files){
-    data <- readr::read_csv(i,col_types = readr::cols())
-    dataset <- unlist(stringr::str_split(i,"//|/"))[3]  %>% as.character()
-    aux <- paste0(dataset, "_", colnames(data)[-1])
-    colnames(data) <- c("cpg", aux)
-    assign(dataset,data)
-}
-colnames(GASPARONI)
-```
-
-## Create a merged final dataset
-
-```{R, eval = TRUE}
-cohort_ls <- list(
-    Gasparoni = GASPARONI,
-    London_PFC = LONDON,
-    MtSinai = MTSINAI,
-    ROSMAP = ROSMAP
-)
-
-### outer join input region
-multi_cohorts <- Reduce(
-    function(x,y, ...) merge(x, y, by = "cpg", all = TRUE, ...),
-    cohort_ls
-)
-dim(multi_cohorts)
-```
-
-## Meta analysis 
-
-```{R, eval = FALSE}
-### calculate meta analysis z scores and p values
-doParallel::registerDoParallel(cores = parallel::detectCores()/2)
-meta_df <- plyr::adply(
-    .data = multi_cohorts, 
-    .margins = 1, 
-    .fun =  function(rowOne_df){
-        
-        est <- rowOne_df[grep("Estimate.bacon",colnames(rowOne_df))] %>% as.numeric
-        
-        direction <-  paste(
-            ifelse(
-                is.na(est), ".",
-                ifelse(est > 0, "+", "-")
-            ), collapse = "")
-        
-        se <- rowOne_df[grep("StdErr.bacon",colnames(rowOne_df))] %>% as.numeric
-        cohort <- gsub("_StdErr.bacon","",grep("StdErr.bacon",colnames(rowOne_df),value = T))
-        rowOne_reform_df <- data.frame(
-            cohort = cohort,
-            est = est,
-            se = se,
-            stringsAsFactors = FALSE
-        )
-        
-        f <- metagen(
-            TE = est,
-            seTE = se,
-            data = rowOne_reform_df
-        )
-        
-        tibble::tibble(
-            cpg = rowOne_df$cpg,
-            estimate.bacon = f$TE.fixed,
-            se.bacon = f$seTE.fixed,
-            pVal.fixed.bacon = f$pval.fixed,
-            pVal.random.bacon = f$pval.random,
-            pValQ.bacon = f$pval.Q,
-            direction.bacon = direction
-        )
-    }  , .progress = "time",
-    .parallel = TRUE,
-    .id = NULL
-)
-
-### create final pVal
-meta_df$pVal.final.bacon <- ifelse(
-    meta_df$pValQ.bacon > 0.05, meta_df$pVal.fixed.bacon, meta_df$pVal.random.bacon
-)
-
-### calculate fdr
-meta_df$fdr.bacon <- p.adjust(meta_df$pVal.final.bacon, method = "fdr")
-
-### order meta_df
-meta_final_df <- meta_df[, c(grep("_",colnames(meta_df),invert = T),
-                           grep("_",colnames(meta_df),invert = F))
-                         ]
-
-meta_final_ordered_df <- meta_final_df[order(meta_final_df$pVal.final.bacon),]
-```
-
-## Add annotation to input cpgs
-
-```{R, eval = FALSE}
-library(sesame)
-probes.info <- sesameDataGet("HM450.hg19.manifest")
-probes.info <- probes.info[meta_final_ordered_df$cpg %>% as.character()] %>% 
-    as.data.frame %>% 
-    dplyr::select(c("seqnames","start","end"))
-
-result_annot_df <- merge(
-    y = meta_final_ordered_df,
-    x = probes.info,
-    by.y = "cpg",
-    by.x = "row.names",
-    all.y = TRUE,
-    sort = FALSE
-)
-
-colnames(result_annot_df)[1] <- "cpg"
-```
-
-```{R, eval = FALSE}
-### final raw data
-write.csv(
-    result_annot_df %>% as.data.frame(),
-    file.path(dir.data, "meta_analysis_single_cpg_bacon_df.csv"),
-    row.names = FALSE
-)
-```
-
-```{R, eval = FALSE, include = FALSE}
-## Prepare dataset for comb-p
-result_for_combp_df <- result_annot_df[
-  , c("seqnames", "start", "end", "pVal.final.bacon")
-]
-colnames(result_for_combp_df)[4] <- "pValue"
-colnames(result_for_combp_df)[1] <- "chr"
-```
-
-```{R, eval = FALSE, include = FALSE}
-write.csv(
-  result_for_combp_df %>% as.data.frame(),
-  paste0(dir.data, "meta_analysis_single_cpg_df_for_combp_bacon.csv"),
-  row.names = FALSE
-)
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqPlot.rosmap
+dev.off()
 ```
 
 
-```{R, eval = FALSE, include = FALSE}
-## Compare results with smith top 10
-smithTop10 <- c(
-  "cg22867816", "cg06977285", "cg05783384", "cg07349815", "cg21806242",
-  "cg03834767", "cg13935577", "cg27078890", "cg22962123", "cg26199857"
-)
-
-colnames(result_annot_df)[1] <- "cpg"
-
-result_smithTop10 <- result_annot_df[match(smithTop10, result_annot_df$cpg),]
-result_smithTop10 <- result_smithTop10[complete.cases(result_smithTop10$cpg),]
-```
-
-```{R, eval = FALSE, include = FALSE}
-write.csv(
-  result_smithTop10 %>% as.data.frame(),
-  paste0(dir.data, "meta_analysis_single_cpg_df_smithTop10_bacon.csv"),
-  row.names = FALSE
-)
-```
-
-## Delete cross-hybridizing and smoking probes from sig probes
-
-```{R, eval = FALSE}
-### Exclude non-significant probes
-result_annot_sig_df <- result_annot_df %>% filter(fdr.bacon < 0.05) #dim:3979 24
-
-write.csv(
-    result_annot_sig_df %>% as.data.frame(),
-    paste0(dir.data, "meta_analysis_single_cpg_sig_df_bacon.csv"),
-    row.names = FALSE
-)
-
-### Get crosshybrdizing probes
-library(ExperimentHub)
-
-eh = ExperimentHub()
-query(eh, "DMRcate")
-crosshyb <- eh[["EH3129"]]
-
-
-### Get significant smoking probes
-smoking.file <- "https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5267325/bin/NIHMS817273-supplement-001506_-_Supplemental_Tables.xlsx"
-
-if(!file.exists(basename(smoking.file))) downloader::download(smoking.file,basename(smoking.file))
-
-smoking <- readxl::read_xlsx(
-    basename(smoking.file),
-    sheet = "02",
-    skip = 2
-)
-smoking.sig.probes <- smoking %>% dplyr::filter(`P-value` < 1*10^(-7)) %>% pull("Probe ID")
-
-
-### Exclude cross-hybridizing and smoking probes
-result_annot_sig_df$cpg <- as.character(result_annot_sig_df$cpg)
-
-result_annot_sig_no_crossHyb_smoking_df <- result_annot_sig_df[
-    !(result_annot_sig_df$cpg %in% c(crosshyb, smoking.sig.probes)),
-] #dim: 3751 28
-
-### Add annotation
-library(coMethDMR)
-
-result_annot_sig_no_crossHyb_smoking_df$chrom <- as.character(
-    result_annot_sig_no_crossHyb_smoking_df$seqnames
-)
-
-result_final <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df)
-
-result_final_ordered <- result_final[
-    ,c(
-        1:4, 46:49, 5:12,
-        grep("GASPARONI", colnames(result_final), ignore.case = TRUE, invert = FALSE),
-        grep("LONDON", colnames(result_final), ignore.case = TRUE, invert = FALSE),
-        grep("MTSINAI", colnames(result_final), ignore.case = TRUE, invert = FALSE),
-        grep("ROSMAP", colnames(result_final), ignore.case = TRUE, invert = FALSE)
-    )
-]
-
-write.csv(
-    result_final_ordered %>% as.data.frame(),
-    paste0(dir.data, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv"),
-    row.names = FALSE
-)
-
-
-result_annot_sig_df_2_4_minus_7 <- result_annot_df %>% filter(pVal.final.bacon <  2.4e-07) 
-
-write.csv(
-    result_annot_sig_df_2_4_minus_7 %>% as.data.frame(),
-    paste0(dir.data, "meta_analysis_single_cpg_sig_df_bacon_2_4_minus_7.csv"),
-    row.names = FALSE
-)
-
-
-### Exclude cross-hybridizing and smoking probes
-result_annot_sig_df_2_4_minus_7$cpg <- as.character(result_annot_sig_df_2_4_minus_7$cpg)
-
-result_annot_sig_no_crossHyb_smoking_df_2_4_minus_7 <- result_annot_sig_df_2_4_minus_7[
-    !(result_annot_sig_df_2_4_minus_7$cpg %in% c(crosshyb, smoking.sig.probes)),
-] #dim: 3751 28
-
-### Add annotation
-library(coMethDMR)
-
-result_annot_sig_no_crossHyb_smoking_df_2_4_minus_7$chrom <- as.character(
-    result_annot_sig_no_crossHyb_smoking_df_2_4_minus_7$seqnames
-)
-
-result_final_2_4_minus_7 <- AnnotateResults(result_annot_sig_no_crossHyb_smoking_df_2_4_minus_7)
-
-result_final_ordered_2_4_minus_7<- result_final_2_4_minus_7[
-    ,c(
-        1:4, 46:49, 5:12,
-        grep("GASPARONI", colnames(result_final_2_4_minus_7), ignore.case = TRUE, invert = FALSE),
-        grep("LONDON", colnames(result_final_2_4_minus_7), ignore.case = TRUE, invert = FALSE),
-        grep("MTSINAI", colnames(result_final_2_4_minus_7), ignore.case = TRUE, invert = FALSE),
-        grep("ROSMAP", colnames(result_final_2_4_minus_7), ignore.case = TRUE, invert = FALSE)
-    )
-]
-
-write.csv(
-    result_final_ordered_2_4_minus_7 %>% as.data.frame(),
-    paste0(dir.data, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon_2_4_minus_7.csv"),
-    row.names = FALSE
-)
-```
-
-```{R}
-readr::read_csv(
-  file.path(dir.data, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv"),
-  col_types = readr::cols()
-)
-```
-
-# Results from single CPG analysis and DMR analysis
-
-## Paths
-```{R}
-dir.result <- "../meta_analysis_region_results/"
-dir.result.meta.analysis <- file.path(dir.result, "step1_meta_analysis/")
-dir.result.smoking_crosshyb <- file.path(dir.result, "step2_smoking_cross_anotation/")
-dir.result.comp <- file.path(dir.result, "step3_comp/")
-dir.result.cpg.vs.dmr <- file.path(dir.result, "step4_dmr_vs_cpgs/")
-dir.result.lola <- file.path(dir.result, "step5_lola/")
-dir.result.enrichment <- file.path(dir.result, "step6_enrichment/")
-dir.result.pathway <- file.path(dir.result, "step7_pathway/")
-data.final <- dir.data
-```
-
-```{R, include = TRUE, eval = FALSE}
-## Adding significant probes from single cpg analysis to DMR analysis
-
-overlapping.results <-  readr::read_csv(
-  paste0(dir.result.comp, "meta_analysis_ov_comb_p.csv"),
-  col_types = readr::cols()
-)
-probes.in.all.regions <- coMethDMR::GetCpGsInAllRegion(
-  overlapping.results$inputRegion
-)
-
-single.cpg.results <- readr::read_csv(
-  paste0(dir.data, "meta_analysis_single_cpg_sig_no_crossHyb_smoking_df_bacon.csv"),
-  col_types = readr::cols()
-  )
-single.cpg.results.probes <- single.cpg.results %>% pull(cpg) %>% as.character
-
-overlapping.results$Probes_single_cpg_analysis_fdr_0_05 <- lapply(probes.in.all.regions, function(x){
-  paste(x[x %in% single.cpg.results.probes],collapse = ";")
-}) %>% unlist
-
-write.csv(
-  overlapping.results,
-  paste0(dir.data, "meta_analysis_sig_add_crossHyb_ov_comb_p_with_sig_single_cpgs_bacon.csv"),
-  row.names = FALSE
-)
-
-write.csv(
-  overlapping.results %>% dplyr::filter(smoke_bi == 0 & crossHyb_bi == 0),
-  paste0(dir.data, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs_bacon.csv"),
-  row.names = FALSE
+```{R single_cpg_meta, include = FALSE, eval = FALSE}
+## Single-cpg meta
+res <- read.csv(
+    file.path(dir.meta.single.cpg, "meta_analysis_single_cpg_df.csv")
 )
 ```
 
 ```{R, include = FALSE, eval = FALSE}
-readr::read_csv(
-  paste0(dir.result.cpg.vs.dmr, "meta_analysis_sig_no_crossHyb_smoking_ov_comb_p_with_sig_single_cpgs_bacon.csv"),
-  col_types = readr::cols()
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+res.with.inflation <- res.with.inflation[
+    ,c(grep("GASPARONI|MTSINAI|LONDON|ROSMAP", colnames(res.with.inflation), ignore.case = T, invert = T),
+       grep("GASPARONI|MTSINAI|LONDON|ROSMAP", colnames(res.with.inflation), ignore.case = T, invert = F)
+      )]
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, "meta_analysis_single_cpg_df.csv"),
+    row.names = FALSE
 )
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 2459 sig
+```
+
+```{R, include = FALSE, eval = FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pVal.final,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pVal.final.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+# pdf(file.path(dir.fig,"meta_pvalHist.pdf"))
+ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = "Histogram of pvalues in meta analysis") +
+  theme_bw()
+# dev.off()
+
+
+qqplot.meta <- qqPlot(res.with.inflation$pVal.final, ci = TRUE, main = "Meta analysis") +
+text(
+  x = 0.5, 
+  y = 15,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5,
+  y = 14,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.meta <- recordPlot()
+```
+
+```{R, eval = FALSE, include = FALSE}
+pdf(file.path(dir.fig,"meta_qqPlots.pdf"))
+qqplot.meta
+dev.off()
+```
+
+
+```{R final_plot, include = FALSE, eval = FALSE}
+library(cowplot)
+save(qqPlot.rosmap,qqplot.gasparoni,qqplot.london,qqPlot.mtsinai,file = "qqplots.rda")
+pdf("Supplementary_Figure_1.pdf",width = 9, height = 9)
+plot_grid(qqplot.gasparoni, qqplot.london,qqPlot.mtsinai, qqPlot.rosmap, ncol = 2,nrow = 2,scale = 0.8)
+dev.off()
 ```
 
 # Session information
