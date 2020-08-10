@@ -1,0 +1,452 @@
+---
+title: "Sensitivity Analysis - estimation of genomic inflation"
+author: "Lanyu Zhang, Tiago C. Silva, Lily Wang"
+date: "`r Sys.Date()`"
+output:
+  rmarkdown::html_document:
+    theme: lumen
+    toc: true
+    number_sections: true
+    df_print: paged
+    code_download: true
+    toc_float:
+      collapsed: yes
+    toc_depth: 3
+editor_options:
+  chunk_output_type: inline    
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+```
+
+# Paths
+
+```{R}
+dir.single.cohort <- "../DATASETS"
+dir.gasparoni <- file.path(dir.single.cohort, "GASPARONI/step9_single_cpg_pval")
+dir.london <- file.path(dir.single.cohort, "LONDON/step7_single_cpg_pval")
+dir.mtsinai <- file.path(dir.single.cohort, "MtSinai/step7_single_cpg_pval")
+dir.rosmap <- file.path(dir.single.cohort, "ROSMAP/step9_single_cpg_pval")
+dir.meta.single.cpg <- "../meta_analysis_single_cpg_results/"
+dir.data <- "./DATASETS"
+dir.fig <- "./FIGURES"
+```
+
+# Estimation of inflation
+
+```{R, message = FALSE, warning = FALSE, result = "hide"}
+library(dplyr)
+library(bacon)
+library(GWASTools)
+```
+
+## Auxiliary functions
+
+```{R}
+estimation_of_inflation <- function(data){
+  ### 1. Compute genomic inflation factor before bacon adjustment
+  data$zvalue <- data$Estimate / data$StdErr
+  data$chisq <- (data$zvalue) ^ 2
+
+  # inflation factor - last term is median from chisq distrn with 1 df  
+  inflationFactor <- median(data$chisq,na.rm = TRUE) / qchisq(0.5, 1)
+  print("lambda")
+  print(inflationFactor)
+
+  # genome-wide sig cpgs
+  sig <- ifelse(data$pValue < 2.4e-7, 1, 0)
+  # table(sig)  # 1 sig
+
+  ### 2. bacon analysis
+  bc <- bacon(
+    teststatistics = NULL,
+    effectsizes =  data$Estimate,
+    standarderrors = data$StdErr,
+    na.exclude = TRUE
+  )
+
+  # inflation factor
+  print("lambda.bacon")
+  print(inflation(bc))
+  
+  ### 3. Create final dataset
+  data.with.inflation <- data.frame(
+    data,
+    Estimate.bacon = bacon::es(bc),
+    StdErr.bacon = bacon::se(bc),
+    pValue.bacon = pval(bc),
+    fdr.bacon = p.adjust(pval(bc), method = "fdr"),
+    stringsAsFactors = FALSE
+  )
+  data.with.inflation <- data.with.inflation %>% select(-c(zvalue, chisq))
+  return(
+    list("data.with.inflation" = data.with.inflation, 
+          "inflationFactor" =   inflationFactor,
+          "estimatedInflation" = inflation(bc)
+         )
+    )
+}
+  
+```
+
+## GASPARONI
+
+```{R, include = FALSE}
+res <- read.csv(
+    file.path(dir.gasparoni, "Gasparoni_single_cpg_pVal_df.csv")
+)
+```
+
+```{R}
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+
+cohort <- "GASPARONI"
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
+    row.names = FALSE
+)
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 2 sig
+
+```
+
+```{R, include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+
+hist.gasparoni <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3, position = "identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.gasparoni
+# dev.off()
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 6.2,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) +
+text(
+  x = 0.5, 
+  y = 5.4,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.gasparoni <- recordPlot()
+
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqplot.gasparoni
+dev.off()
+```
+
+## LONDON
+
+```{R, include = FALSE}
+res <- read.csv(
+    file.path(dir.london, "London_PFC_single_cpg_pVal_df.csv")
+)
+```
+
+```{R}
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+cohort <- "LONDON"
+
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
+    row.names = FALSE
+)
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 11 sig
+
+```
+
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+hist.london <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.london
+#dev.off()
+
+
+p <- ggplot(res.with.inflation, aes(sample = pValue))
+p + stat_qq() + stat_qq_line()
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 7.5,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5, 
+  y = 6.5,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.london <- recordPlot()
+
+# Save
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqplot.london
+dev.off()
+```
+
+## MTSINAI
+
+```{R, include = FALSE}
+res <- read.csv(
+    file.path(dir.mtsinai, "MtSinai_single_cpg_pVal_df.csv")
+)
+```
+
+```{R}
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+cohort <- "MTSINAI"
+
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
+    row.names = FALSE
+)
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 0 sig
+
+```
+
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+
+hist.mtsinai <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3, position = "identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.mtsinai
+# dev.off()
+
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 6.2,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5, 
+  y = 5.4,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqPlot.mtsinai <- recordPlot()
+
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqPlot.mtsinai
+dev.off()
+```
+
+## ROSMAP
+
+```{R, include = FALSE}
+res <- read.csv(
+    file.path(dir.rosmap, "ROSMAP_PFC_single_cpg_pVal_df.csv")
+)
+```
+
+```{R rosmap}
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+cohort <- "ROSMAP"
+
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, cohort, "single_cpg_pVal_df.csv"),
+    row.names = FALSE
+)
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 34 sig
+```
+
+```{R,include = FALSE, eval=FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pValue,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pValue.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+
+plot_df <- rbind(pValue, pValue.bacon)
+
+hist.rosmap <- ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = paste0("Histogram of pvalues in ", cohort, " cohort")) +
+  theme_bw()
+
+# pdf(paste0(dir.fig, "/", cohort, "_pvalHist.pdf"))
+hist.rosmap
+# dev.off()
+
+
+qqPlot(res.with.inflation$pValue, ci = TRUE, main = paste0(cohort, " cohort")) +
+text(
+  x = 0.5, 
+  y = 9,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5,
+  y = 8,
+  labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqPlot.rosmap <- recordPlot()
+
+pdf(paste0(dir.fig, "/", cohort, "_qqPlots.pdf"))
+qqPlot.rosmap
+dev.off()
+```
+
+
+```{R single_cpg_meta, include = FALSE, eval = FALSE}
+## Single-cpg meta
+res <- read.csv(
+    file.path(dir.meta.single.cpg, "meta_analysis_single_cpg_df.csv")
+)
+```
+
+```{R, include = FALSE, eval = FALSE}
+est.inflation <- estimation_of_inflation(res)
+res.with.inflation <- est.inflation$data.with.inflation
+
+res.with.inflation <- res.with.inflation[
+    ,c(grep("GASPARONI|MTSINAI|LONDON|ROSMAP", colnames(res.with.inflation), ignore.case = T, invert = T),
+       grep("GASPARONI|MTSINAI|LONDON|ROSMAP", colnames(res.with.inflation), ignore.case = T, invert = F)
+      )]
+write.csv(
+    res.with.inflation,
+    file.path(dir.data, "meta_analysis_single_cpg_df.csv"),
+    row.names = FALSE
+)
+
+# genome-wide sig cpgs
+sig.fdr <- ifelse(res.with.inflation$fdr.bacon < 0.05, 1, 0)
+# table(sig.fdr)   # 2459 sig
+```
+
+```{R, include = FALSE, eval = FALSE}
+### 5. Plots
+pValue <- data.frame(
+  pValue = res.with.inflation$pVal.final,
+  type = "pValue",
+  stringsAsFactors = F)
+
+pValue.bacon <- data.frame(
+  pValue = res.with.inflation$pVal.final.bacon,
+  type = "pValue.bacon",
+  stringsAsFactors = F)
+plot_df <- rbind(pValue, pValue.bacon)
+
+# pdf(file.path(dir.fig,"meta_pvalHist.pdf"))
+ggplot(plot_df, aes(pValue, fill = type)) +
+  geom_histogram(alpha = 0.3,position="identity") +
+  labs(title = "Histogram of pvalues in meta analysis") +
+  theme_bw()
+# dev.off()
+
+
+qqplot.meta <- qqPlot(res.with.inflation$pVal.final, ci = TRUE, main = "Meta analysis") +
+text(
+  x = 0.5, 
+  y = 15,
+  labels = bquote(lambda == .(format(est.inflation$inflationFactor,digits = 4))),
+  pos = 4
+) + text(
+  x = 0.5,
+  y = 14,
+ labels = bquote(lambda[bacon] == .(format(est.inflation$estimatedInflation,digits = 4))),
+  pos = 4
+)
+qqplot.meta <- recordPlot()
+```
+
+```{R, eval = FALSE, include = FALSE}
+pdf(file.path(dir.fig,"meta_qqPlots.pdf"))
+qqplot.meta
+dev.off()
+```
+
+
+```{R final_plot, include = FALSE, eval = FALSE}
+library(cowplot)
+save(qqPlot.rosmap,qqplot.gasparoni,qqplot.london,qqPlot.mtsinai,file = "qqplots.rda")
+pdf("Supplementary_Figure_1.pdf",width = 9, height = 9)
+plot_grid(qqplot.gasparoni, qqplot.london,qqPlot.mtsinai, qqPlot.rosmap, ncol = 2,nrow = 2,scale = 0.8)
+dev.off()
+```
+
+# Session information
+```{R}
+devtools::session_info()
+```
