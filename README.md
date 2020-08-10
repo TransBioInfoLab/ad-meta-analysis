@@ -76,7 +76,7 @@ This section includes scripts for:
 1. Controlling bias and inflation in the association studies previously described on the "Single cohort analysis" section. 
 2. Meta-analyzing individual CpG controlled results across different cohorts as described previously on section "Meta-analysis".
 3. Enrichment analysis of controlled results as described previously on section "Enrichment analysis of significant DNA methylation changes".
-4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs
+4. Enrichment analysis using a logistic mixed effects regression model that accounts for correlations between CpGs.
 
 | File                 | HTML |
 |----------------------|-------------| 
