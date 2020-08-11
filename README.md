@@ -129,17 +129,11 @@ This section includes scripts for:
 
 | File                 | HTML |
 |----------------------|-------------| 
-<<<<<<< HEAD
-| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
-| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
-| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
-| sensitivity_analysis/hpmixed_glimmix  |  |
-=======
 | sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Sensitivity_Analysis_estimation_genomic_inflation)  |  
 | sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Meta_analysis_using_bacon_inflation)  |  
 | sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/enrichment_analysis_of_sigCpGs_after_inflation_correction_bacon) |
 | sensitivity_analysis/hpmixed_glimmix.sas  |  |
->>>>>>> fd772ea392196f1694d9692721431952b6c7e30d
+
 
 
 
