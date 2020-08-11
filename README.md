@@ -3,15 +3,14 @@ Lanyu Zhang, Tiago Chedraoui Silva, Juan Young, Lissette Gomez, Michael Schmidt,
 
 ### Description
 
-Given the small effect sizes of DNA methylation changes in Alzheimer’s disease (AD) and the inconsistencies often observed in different studies, we conducted a meta-analysis of more than one thousand prefrontal cortex brain samples, to prioritize the most consistent methylation changes in multiple cohorts. Using a uniform analysis pipeline, we identified 3751 CpGs and 119 DMRs significantly associated with Braak stage. Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights into epigenetics of AD. For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. Our enrichment analysis highlighted the particular relevant roles of the immune system and polycomb repressive complex 2 in AD. These results will help facilitate future mechanistic and biomarker discovery studies in AD.
+Given the modest effect sizes of DNA methylation changes in Alzheimer’s disease (AD) and the inconsistencies often observed in different studies, we conducted a meta-analysis of more than one thousand prefrontal cortex brain samples, to prioritize the most consistent methylation changes in multiple cohorts. Using a uniform analysis pipeline, we identified 3751 CpGs and 119 DMRs significantly associated with Braak stage. Our analysis nominated many new differentially methylated genes such as MAMSTR, AGAP2, AZU1 and provided new insights into epigenetics of AD. For example, the most significant DMR is located on the MAMSTR gene, which encodes a cofactor that stimulates MEF2C. Notably, MEF2C cooperates with another transcription factor PU.1, a central hub in AD gene network. Our enrichment analysis highlighted the particular relevant roles of the immune system and polycomb repressive complex 2 in AD. These results will help facilitate future mechanistic and biomarker discovery studies in AD.
 
 ### Single cohort analysis
 
 This section includes scripts for cohort specific analysis. 
 The association between CpG methylation levels and Braak stage was assessed using 
 linear statistical models for each cohort. We adjusted for potential confounding 
-factors including age at death, sex, batch effects, and proportion of different 
-cell types in the samples estimated by the CETS R package. 
+factors including age at death, sex, batch effects, and estimated proportions of neurons in the samples. 
 
 Each of the files has the following sections:
 
@@ -45,9 +44,9 @@ the comb-p approach and the coMethDMR approach. The significant DMRs were select
 
 (2) coMethDMR approach - we performed cohort specific analysis for genomic regions first. First, coMethDMR selects co-methylated sub-regions within the contiguous genomic regions. Next, we summarized methylation M values within these co-methylated sub-regions using medians and tested them against AD Braak stage. 
 
-We adjusted for potential confounding factors including age at death, sex, batch, and proportion of different cell types. The cohort specific p-values for each contiguous genomic region were then combined across cohorts using fixed effects meta-analysis model (or random effects model if test of heterogeneity had p-value was less than 0.05). 
+We adjusted for potential confounding factors including age at death, sex, batch, and estimated proportions of neurons. The cohort specific p-values for each contiguous genomic region were then combined across cohorts using fixed effects meta-analysis model (or random effects model if test of heterogeneity p-value was less than 0.05). 
 
-Note that the coMethDMR approach allowed us to assess between cohort heterogeneities for genomic regions. 
+Note that the coMethDMR approach also allowed us to assess between cohort heterogeneities for genomic regions. 
 
 | File                 | HTML |
 |----------------------|----------------------|
@@ -57,7 +56,7 @@ Note that the coMethDMR approach allowed us to assess between cohort heterogenei
 ### Enrichment analysis of significant DNA methylation changes 
 
 Meta-analysis results were divided into two groups, methylation changes with positive estimates 
-(hypermethylation in AD compared to control) and negative estimae (hypomethylation in AD compared to control). 
+(hypermethylation in AD compared to control) and negative estimate (hypomethylation in AD compared to control). 
 For each group, we performed an enrichment analysis (Fisher's test) separately for DMRs and CpGs. 
 
 The main regions/probe annotation used were: 
@@ -72,11 +71,11 @@ The main regions/probe annotation used were:
 
 
 
-### Matched Meta-analysis
+### Meta-analysis of age and sex matched samples
 
 To prioritize methylation changes most likely to be affected by the 
 AD pathogenesis process, we performed additional analysis using a sample 
-matching strategy to reduce confounding effects due to age. 
+matching strategy to reduce confounding effects due to age and sex. 
 More specifically, we first matched each case with control samples with the same age at death (in years) and sex in the same cohort using matchControls function in e1071 R package. The age and sex matched samples were then analyzed in the same way as described above, except by removing age at death and sex effects in the linear models. 
 
 | File                 | HTML |
@@ -107,14 +106,14 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 
 ### Correlation and co-localization with genetic susceptibility loci
 
-To identify methylation quantitative trait loci (mQTLs) for the significant DMRs and CpGs, we tested associations between the methylation levels with nearby SNPs, using the ROSMAP study dataset, which had matched genotype data and DNA methylation data for 688 samples. To evaluate if the significant methylation changes are located closely to genetic risk loci,we tested enrichment of significant CpGs and DMRs identified in this study with the 24 LD blocks of genetic variants reaching genome-wide significance in a recent AD meta-analysis102 (PMID: 30820047). In addition, we also performed a co-localization analysis using the method of Giambartolomei et al. (2014) (PMID: 24830394), to determine whether the association signals at the GWAS loci (variant to AD status, and variant to CpG methylation levels) are due to a single shared causal variant or to distinct causal variants close to each other. 
+To identify methylation quantitative trait loci (mQTLs) for the significant DMRs and CpGs, we tested associations between the methylation levels with nearby SNPs, using the ROSMAP study dataset, which had matched genotype data and DNA methylation data for 688 samples. To evaluate if the significant methylation changes are located closely to genetic risk loci, we tested enrichment of significant CpGs and DMRs identified in this study with the 24 LD blocks of genetic variants reaching genome-wide significance in a recent AD meta-analysis (PMID: 30820047). In addition, we also performed a co-localization analysis using the method of Giambartolomei et al. (2014) (PMID: 24830394), to determine whether the association signals at the GWAS loci (variant to AD status, and variant to CpG methylation levels) are due to a single shared causal variant or to distinct causal variants close to each other. 
 
 | File                 |                      | 
 |----------------------|----------------------|
-| ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
-| ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  |   |  
-| ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |   |
-| colocAnalysis24CpGs_code.R |   |
+| ov_genetic_susceptibility_loci/ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
+| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  |   |  
+| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |   |
+| ov_genetic_susceptibility_loci/colocAnalysis24CpGs_code.R |   |
 | matrixEQTLcodeForColocalisation_24CpG.R  |  |
 
 ### Sensitivity analysis
@@ -132,7 +131,7 @@ This section includes scripts for:
 | sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Sensitivity_Analysis_estimation_genomic_inflation)  |  
 | sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Meta_analysis_using_bacon_inflation)  |  
 | sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/enrichment_analysis_of_sigCpGs_after_inflation_correction_bacon) |
-| sensitivity_analysis/hpmixed_glimmix.sas  |  |
+| sensitivity_analysis/hpmixed_glimmix  |  |
 
 
 
