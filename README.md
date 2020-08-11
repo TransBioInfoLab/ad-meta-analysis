@@ -114,7 +114,7 @@ To identify methylation quantitative trait loci (mQTLs) for the significant DMRs
 | ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  |   |  
 | ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |   |
 | ov_genetic_susceptibility_loci/colocAnalysis24CpGs_code.R |   |
-| matrixEQTLcodeForColocalisation_24CpG.R  |  |
+| ov_genetic_susceptibility_loci/matrixEQTLcodeForColocalisation_24CpG.R  |  |
 
 ### Sensitivity analysis
 
