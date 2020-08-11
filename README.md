@@ -81,7 +81,7 @@ More specifically, we first matched each case with control samples with the same
 
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/6_matched-analysis-by-both-age-and-sex.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/cor_ad_met_gene)|
+| meta_analysis/6_matched-analysis-by-both-age-and-sex.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/ad_meta_matched_sex_age)|
 
 ### Correlation of methylation changes in brain and blood samples
 
@@ -103,7 +103,7 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 
 | File                 |                      | 
 |----------------------|----------------------|
-| cor_sig_DMRs_exp_nearby_genes/gene-expression-analysis-for-all-not-by-case-control.Rmd| [Link to compiled report](https://www.dropbox.com/s/xark1mvt9qzseqv/5_gene-expression-analysis-for-all-not-by-case-control.html?dl=1)|
+| cor_sig_DMRs_exp_nearby_genes/gene-expression-analysis-for-all-not-by-case-control.Rmd| [Link to compiled report](https://rpubs.com/tiagochst/cor_ad_met_gene)|
 
 ### Overlap with genetic susceptibility loci
 
