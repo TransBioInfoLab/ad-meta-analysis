@@ -106,16 +106,17 @@ gene expression values for ROSMAP study were downloaded from AMP-AD Knowledge Po
 |----------------------|----------------------|
 | cor_sig_DMRs_exp_nearby_genes/gene-expression-analysis-for-all-not-by-case-control.Rmd| [Link to compiled report](https://www.dropbox.com/s/xark1mvt9qzseqv/5_gene-expression-analysis-for-all-not-by-case-control.html?dl=1)|
 
-### Overlap with genetic susceptibility loci
+### Correlation and co-localization with genetic susceptibility loci
 
-To evaluate if the significant methylation changes are located closely to genetic risk loci, 
-we tested enrichment of significant CpGs and DMRs identified in this study with the 
-24 LD blocks of genetic variants reaching genome-wide significance in a 
-recent AD meta-analysis102 (PMID: 30820047), using one-sided Fisher’s test. 
+To identify methylation quantitative trait loci (mQTLs) for the significant DMRs and CpGs, we tested associations between the methylation levels with nearby SNPs, using the ROSMAP study dataset, which had matched genotype data and DNA methylation data for 688 samples. To evaluate if the significant methylation changes are located closely to genetic risk loci,we tested enrichment of significant CpGs and DMRs identified in this study with the 24 LD blocks of genetic variants reaching genome-wide significance in a recent AD meta-analysis102 (PMID: 30820047). In addition, we also performed a co-localization analysis using the method of Giambartolomei et al. (2014) (PMID: 24830394), to determine whether the association signals at the GWAS loci (variant to AD status, and variant to CpG methylation levels) are due to a single shared causal variant or to distinct causal variants close to each other. 
 
 | File                 |                      | 
 |----------------------|----------------------|
-|  ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
+| ov_genetic_susceptibility_loci/ ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
+| ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  |   |  
+| ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |   |
+| colocAnalysis24CpGs_code.R |   |
+| matrixEQTLcodeForColocalisation_24CpG.R  |  |
 
 ### Sensitivity analysis
 
@@ -132,7 +133,7 @@ This section includes scripts for:
 | sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
 | sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
 | sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
-| sensitivity_analysis/hpmixed_glimmix.sas  |  |
+| sensitivity_analysis/hpmixed_glimmix  |  |
 
 
 
