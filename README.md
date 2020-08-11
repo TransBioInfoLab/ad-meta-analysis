@@ -81,8 +81,7 @@ More specifically, we first matched each case with control samples with the same
 
 | File                 | HTML |
 |----------------------|----------------------|
-| meta_analysis/Matched-analysis.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_matched_analysis)|
-| meta_analysis/6_matched-analysis-by-both-age-and-sex.Rmd | [Link to compiled report](https://www.dropbox.com/s/7f0zb9icxs0v69g/6_matched-analysis-by-both-age-and-sex.html?dl=1)|
+| meta_analysis/6_matched-analysis-by-both-age-and-sex.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/cor_ad_met_gene)|
 
 ### Correlation of methylation changes in brain and blood samples
 
@@ -129,9 +128,9 @@ This section includes scripts for:
 
 | File                 | HTML |
 |----------------------|-------------| 
-| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/ld5fh0239c4xdj2/1_bacon-adjusted-single-cohort-analysis.html?dl=1)  |  
-| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://www.dropbox.com/s/8wx5uligyas6ph0/2_bacon-adjusted-meta-analysis.html?dl=1)  |  
-| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://www.dropbox.com/s/jduijk8a9dyp0i8/3_enrichment-analysis-bacon.html?dl=1) |
+| sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Sensitivity_Analysis_estimation_genomic_inflation)  |  
+| sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Meta_analysis_using_bacon_inflation)  |  
+| sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/enrichment_analysis_of_sigCpGs_after_inflation_correction_bacon) |
 | sensitivity_analysis/hpmixed_glimmix.sas  |  |
 
 
