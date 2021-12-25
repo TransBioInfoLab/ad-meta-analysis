@@ -111,10 +111,10 @@ To identify methylation quantitative trait loci (mQTLs) for the significant DMRs
 | File                 |                      | 
 |----------------------|----------------------|
 | ov_genetic_susceptibility_loci/ov_genetic_susceptibility_loci.Rmd | [Link to compiled report](https://rpubs.com/tiagochst/Supplemental_AD_ov_with_genetic_susc_loc)|
-| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  |   |  
-| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |   |
-| ov_genetic_susceptibility_loci/colocAnalysis24CpGs_code.R |   |
-| ov_genetic_susceptibility_loci/matrixEQTLcodeForColocalisation_24CpG.R  |  |
+| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R  | [Link to script](https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysiPCbatch_CpGs_Code.R)|  
+| ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R |[Link to script](https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/ov_genetic_susceptibility_loci/ADcogdx_mqtlAnalysisPCbatch_DMRs_Code.R)|
+| ov_genetic_susceptibility_loci/colocAnalysis24CpGs_code.R |[Link to script](https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/ov_genetic_susceptibility_loci/colocAnalysis24CpGs_code.R)|
+| ov_genetic_susceptibility_loci/matrixEQTLcodeForColocalisation_24CpG.R  |[Link to script](https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/ov_genetic_susceptibility_loci/matrixEQTLcodeForColocalisation_24CpG.R)|
 
 ### Sensitivity analysis
 
