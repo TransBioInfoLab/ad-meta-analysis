@@ -131,7 +131,7 @@ This section includes scripts for:
 | sensitivity_analysis/single-cohort-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Sensitivity_Analysis_estimation_genomic_inflation)  |  
 | sensitivity_analysis/Meta-analysis.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/Meta_analysis_using_bacon_inflation)  |  
 | sensitivity_analysis/enrichment-analysis-bacon.Rmd  | [Link to compiled report](https://rpubs.com/tiagochst/enrichment_analysis_of_sigCpGs_after_inflation_correction_bacon) |
-| sensitivity_analysis/hpmixed_glimmix  |  |
+| sensitivity_analysis/hpmixed_glimmix  |[Link to script](https://github.com/TransBioInfoLab/ad-meta-analysis/blob/master/sensitivity_analysis/hpmixed_glimmix.sas)|
 
 ### Acknowledgement
 All datasets used in this study are publicly available. The Mt. Sinai, London, Gasparoni and ROSMAP datasets were obtained from GEO (accessions GSE80970, GSE59685, GSE66351) and Synapse (accession syn3157275). The ROSMAP study data were provided by the Rush Alzheimer’s Disease Center, Rush University Medical Center, Chicago. Data collection was supported through funding by NIA grants P30AG10161, R01AG15819, R01AG17917, R01AG30146, R01AG36836, U01AG32984, U01AG46152, the Illinois Department of Public Health, and the Translational Genomics Research Institute. 
